@@ -1,0 +1,7 @@
+#root {
+    background: #31363F;
+}
+
+div {
+    font-family: "Inter", sans-serif; /* Corrected selector from #div to div */
+}

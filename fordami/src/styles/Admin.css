@@ -1,0 +1,28 @@
+#button {
+    color: white;
+    margin-top:10px;
+}
+
+#admin-user-form, #admin-vehicle-form {
+    min-width: 300px;
+    padding: 30px;
+    border-radius: 10px;
+    max-width: 480px;
+    margin-bottom: 24px;
+    margin: 0px 10px 16px 10px;
+    background-color: white;
+    box-shadow: 6px 6px 5px rgba(0, 0, 0, 0.50);
+}
+
+#admin-form-container {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    flex: 1;
+    min-height: 100vh;
+}
+
+#accordion-listUser.accordion, #accordion-listKendaraan.accordion  {
+    padding: 0px;
+}

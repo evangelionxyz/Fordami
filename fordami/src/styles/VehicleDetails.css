@@ -1,0 +1,21 @@
+#vd-form-content {
+    margin: auto auto 8px auto;
+    padding: 0px;
+    align-items: center;
+    border-bottom: 1px solid hsl(0, 0%, 80%);
+}
+
+#vd-form-inventory-content {
+    margin: auto;
+    padding: auto;
+    align-items: center;
+}
+
+.form-control-plaintext {
+    padding: 0px;
+}
+
+#vd-form {
+    padding: auto;
+    margin: auto;
+}

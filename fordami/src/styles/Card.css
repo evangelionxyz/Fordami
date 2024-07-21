@@ -1,0 +1,20 @@
+#card-container {
+    border-radius: 10px;
+    font-weight: bold;
+    font-size: medium;
+    cursor: default;
+    box-shadow: 6px 6px 5px rgba(0, 0, 0, 0.50);
+}
+
+#card-container:hover {
+    scale: 1.02;
+    transition-duration: 160ms;
+}
+
+#card-image {
+    max-width:130px;
+    max-height:130px;
+    border-radius:5px;
+    padding:0px;
+    margin-bottom: 8px;
+}

@@ -1,0 +1,27 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.10.35027.167
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{54A90642-561A-4BB1-A94E-469ADEE60C69}") = "fordami", "Fordami\fordami.esproj", "{3A8EF6C2-2A59-47A1-8069-2ACDBCF16809}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{3A8EF6C2-2A59-47A1-8069-2ACDBCF16809}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3A8EF6C2-2A59-47A1-8069-2ACDBCF16809}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3A8EF6C2-2A59-47A1-8069-2ACDBCF16809}.Debug|Any CPU.Deploy.0 = Debug|Any CPU
+		{3A8EF6C2-2A59-47A1-8069-2ACDBCF16809}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3A8EF6C2-2A59-47A1-8069-2ACDBCF16809}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3A8EF6C2-2A59-47A1-8069-2ACDBCF16809}.Release|Any CPU.Deploy.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {F1C9A0E9-C590-499C-96E1-20FB6AB27B8F}
+	EndGlobalSection
+EndGlobal
