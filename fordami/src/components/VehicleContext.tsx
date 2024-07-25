@@ -541,9 +541,8 @@ export function useVehiclesStatusCheck(vehicles: VehicleProps[]) {
             }
         };
 
-        const timer = setInterval(checkVehicles, 60000);
         checkVehicles();
-
+        const timer = setInterval(checkVehicles, 60000);
         return () => clearInterval(timer);
 
     }, [vehicles]);

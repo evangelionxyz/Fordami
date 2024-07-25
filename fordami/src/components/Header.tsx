@@ -1,8 +1,8 @@
 import { useNavigate } from "react-router-dom";
-import { useState } from "react";
-import { getDoc, doc, updateDoc } from "firebase/firestore"
-import { db } from "../lib/Firebase";
-import settingsIcon from "../assets/settings.svg";
+import { useState, useEffect } from "react";
+import { getDoc, doc, updateDoc } from "firebase/firestore";
+import { ref, getDownloadURL } from "firebase/storage";
+import { db, storage} from "../lib/Firebase";
 
 import "../styles/Header.css";
 
@@ -19,6 +19,25 @@ export const Header: React.FC<HeaderProps> = ({ admin, loggedIn, changePWSuccess
     const [currentPassword, setCurrentPassword] = useState<string>("");
     const [newPassword, setNewPassword] = useState<string>("");
     const [failedChangePassword, setFailedChangePassword] = useState<boolean>(false);
+
+    const [settingsIconUrl, setSettingsIconUrl] = useState("");
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchIconUrl = async () => {
+            try {
+                const iconRef = ref(storage, "settings.svg");
+                const url = await getDownloadURL(iconRef);
+                setSettingsIconUrl(url);
+            } catch (err) {
+                console.error("Error fetching icon URL: ", err);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchIconUrl();
+    }, []);
 
     const handleCurrentPWInput = (
         event: React.ChangeEvent<HTMLInputElement>
@@ -77,7 +96,7 @@ export const Header: React.FC<HeaderProps> = ({ admin, loggedIn, changePWSuccess
                             </div>
                             <div id="h-subtitle">
                                 <label id="subtitle">
-                                    Formulir Penggunaan<br></br>Kendaraan Dinas
+                                    Formulir Penggunaan<br></br>Kendaraan Dinas Mimika
                                 </label>
                             </div>
                         </div>
@@ -89,10 +108,10 @@ export const Header: React.FC<HeaderProps> = ({ admin, loggedIn, changePWSuccess
                                 <p id="admin">Admin</p>
                             </div>
                         </div>
-                    ) : admin && loggedIn && (
+                    ) : admin && loggedIn && !loading && (
                         <div id="header-content">
                             <div id="h-admin" onClick={() => setOpenSettings(true)}>
-                                    <img src={settingsIcon} alt="settings" style={{
+                                    <img src={settingsIconUrl} alt="settings" style={{
                                         height: "1.8rem",
                                         filter: "invert(1) brightness(100%)"
                                     }} />
@@ -177,7 +196,6 @@ export const Header: React.FC<HeaderProps> = ({ admin, loggedIn, changePWSuccess
                                         </div>
                                     </div>
                                 </div>
-
                             </div>
                         </div>
                     </div>

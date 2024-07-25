@@ -165,7 +165,7 @@ const Admin: React.FC = () => {
 
     const statusColor = getStatusColor(isReady);
     const percentageColor = getPercentageColor(bbm);
-    const { vehicles, setVehicles } = useVehicles();
+    const { vehicles } = useVehicles();
 
     useVehiclesStatusCheck(vehicles);
 
@@ -308,17 +308,26 @@ const Admin: React.FC = () => {
 
     const [password, setPassword] = useState<string>("");
     const [isAdminLoggedIn, setIsAdminLoggedIn] = useState<boolean>(false);
-    const [passwordValid, setPasswordValid] = useState<boolean>(false);
     const navigate = useNavigate();
 
     useEffect(() => {
-        const adminStatus = checkAdminLoginStatus();
-        setIsAdminLoggedIn(adminStatus);
+        const checkAdminStatus = () => {
+            const adminStatus = checkAdminLoginStatus();
+            setIsAdminLoggedIn(adminStatus);
+        }
+
+        checkAdminStatus();
+        const timer = setInterval(checkAdminStatus, 30000);
+
+        return () => clearInterval(timer);
     }, []);
 
     const handlePasswordInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         setPassword(event.target.value);
     }
+
+    /////////////////////////////////////////////////
+    // LOGIN EXPIRATION
 
     const LOGIN_EXPIRATION_TIME = 30 * 60 * 1000;
 
