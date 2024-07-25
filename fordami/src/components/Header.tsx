@@ -2,6 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { getDoc, doc, updateDoc } from "firebase/firestore"
 import { db } from "../lib/Firebase";
+import settingsIcon from "../assets/settings.svg";
 
 import "../styles/Header.css";
 
@@ -11,7 +12,7 @@ interface HeaderProps {
     changePWSuccess?: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ admin, loggedIn, changePWSuccess}) => {
+export const Header: React.FC<HeaderProps> = ({ admin, loggedIn, changePWSuccess }) => {
     const navigate = useNavigate();
 
     const [openSettings, setOpenSettings] = useState<boolean>(false);
@@ -35,7 +36,7 @@ export const Header: React.FC<HeaderProps> = ({ admin, loggedIn, changePWSuccess
 
     const handleConfirmBt = async (
         event: React.MouseEvent<HTMLButtonElement>
-    ) =>  {
+    ) => {
         event.preventDefault();
         if (currentPassword && newPassword) {
             const adminDocRef = doc(db, "admin", "admin");
@@ -91,7 +92,10 @@ export const Header: React.FC<HeaderProps> = ({ admin, loggedIn, changePWSuccess
                     ) : admin && loggedIn && (
                         <div id="header-content">
                             <div id="h-admin" onClick={() => setOpenSettings(true)}>
-                                <p id="admin">Pengaturan</p>
+                                    <img src={settingsIcon} alt="settings" style={{
+                                        height: "1.8rem",
+                                        filter: "invert(1) brightness(100%)"
+                                    }} />
                             </div>
                         </div>
                     )}
@@ -151,7 +155,7 @@ export const Header: React.FC<HeaderProps> = ({ admin, loggedIn, changePWSuccess
                                                     marginTop: "10px",
                                                     width: "100%"
                                                 }}
-                                                onClick={(e) => setOpenSettings(false) }
+                                                onClick={(e) => setOpenSettings(false)}
                                             >
                                                 Batal
                                             </button>
@@ -166,7 +170,7 @@ export const Header: React.FC<HeaderProps> = ({ admin, loggedIn, changePWSuccess
                                                     backgroundColor: "#00788d",
                                                     width: "100%"
                                                 }}
-                                                onClick={(e) => handleConfirmBt(e) }
+                                                onClick={(e) => handleConfirmBt(e)}
                                             >
                                                 Konfirmasi
                                             </button>
@@ -177,7 +181,7 @@ export const Header: React.FC<HeaderProps> = ({ admin, loggedIn, changePWSuccess
                             </div>
                         </div>
                     </div>
-                    
+
                 </div>
             )}
         </>
