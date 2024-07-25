@@ -19,9 +19,7 @@ export const Header: React.FC<HeaderProps> = ({ admin, loggedIn, changePWSuccess
     const [currentPassword, setCurrentPassword] = useState<string>("");
     const [newPassword, setNewPassword] = useState<string>("");
     const [failedChangePassword, setFailedChangePassword] = useState<boolean>(false);
-
     const [settingsIconUrl, setSettingsIconUrl] = useState("");
-    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         const fetchIconUrl = async () => {
@@ -31,8 +29,6 @@ export const Header: React.FC<HeaderProps> = ({ admin, loggedIn, changePWSuccess
                 setSettingsIconUrl(url);
             } catch (err) {
                 console.error("Error fetching icon URL: ", err);
-            } finally {
-                setLoading(false);
             }
         };
 
@@ -108,9 +104,13 @@ export const Header: React.FC<HeaderProps> = ({ admin, loggedIn, changePWSuccess
                                 <p id="admin">Admin</p>
                             </div>
                         </div>
-                    ) : admin && loggedIn && !loading && (
+                    ) : admin && (
                         <div id="header-content">
-                            <div id="h-admin" onClick={() => setOpenSettings(true)}>
+                                <div id="h-admin" onClick={() => {
+                                    if (loggedIn) {
+                                        setOpenSettings(true)
+                                    }
+                                }}>
                                     <img src={settingsIconUrl} alt="settings" style={{
                                         height: "1.8rem",
                                         filter: "invert(1) brightness(100%)"
