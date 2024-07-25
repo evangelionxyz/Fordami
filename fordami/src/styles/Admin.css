@@ -26,3 +26,9 @@
 #accordion-listUser.accordion, #accordion-listKendaraan.accordion  {
     padding: 0px;
 }
+
+#admin-popup-content {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+}

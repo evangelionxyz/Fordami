@@ -1,16 +1,24 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Header } from "../components/Header";
 import { Footer } from "../components/Footer";
 import { CircularPercentage } from "../components/CircularPercentage";
-import { VehicleDetailsById, VehicleDetailsByIndex } from "../components/VehicleContext";
+import {
+    VehicleDetailsById,
+    VehicleDetailsByIndex,
+    useVehiclesStatusCheck
+} from "../components/VehicleContext";
 import { useVehicles, VehicleProps } from "../components/VehicleContext";
 import { useUsers, UserProps } from "../components/UserContext";
 import { deleteObject, ref } from "firebase/storage";
 import { db, storage } from "../lib/Firebase";
 import { uploadImage } from "../components/ImageUpload";
-import { ExportToExcel } from "../components/ExportToExcel";
-import { checkAdminLoginStatus, getOrCreateComputerId, getPercentageColor} from "../utils";
+import { ExportVehicleToExcel } from "../components/ExportToExcel";
+import {
+    checkAdminLoginStatus,
+    getOrCreateComputerId,
+    getPercentageColor
+} from "../utils";
 
 import{
   collection,
@@ -101,7 +109,8 @@ const Admin: React.FC = () => {
                 isReady: true,
                 status: "",
                 purpose: "",
-                returnTime: "",
+                returnHours: "",
+                reseTime: null,
                 timeStamp: "",
             });
 
@@ -117,8 +126,6 @@ const Admin: React.FC = () => {
         id: string,
         event: React.MouseEvent<HTMLButtonElement>
     ) => {
-        event.preventDefault();
-
         try {
             const docRef = doc(db, "users", id);
             await deleteDoc(docRef);
@@ -136,6 +143,7 @@ const Admin: React.FC = () => {
     const [umbrella, setUmbrella] = useState(true);
     const [spareTire, setSpareTire] = useState(true);
     const [jack, setJack] = useState(true);
+    const imageFileRef = useRef<HTMLInputElement>(null);
     const [imageFile, setImageFile] = useState<File | null>(null);
     const [imageUrl, setImageUrl] = useState<string>("");
 
@@ -151,12 +159,15 @@ const Admin: React.FC = () => {
         if (imageFile) {
             const imageUrl = await uploadImage(imageFile);
             setImageUrl(imageUrl);
+            showAlertMessage("Gambah berhasil diupload", "success");
         }
     };
 
     const statusColor = getStatusColor(isReady);
     const percentageColor = getPercentageColor(bbm);
     const { vehicles, setVehicles } = useVehicles();
+
+    useVehiclesStatusCheck(vehicles);
 
     const handleP3kChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         setP3k(event.target.checked);
@@ -199,6 +210,10 @@ const Admin: React.FC = () => {
     const handleVehicleAddBt = async (event: React.FormEvent) => {
         event.preventDefault();
 
+        if (imageFileRef.current) {
+            imageFileRef.current.value = "";
+        }
+
         if (!imageFile) {
             showAlertMessage("Silahkan pilih gambar kendaraan", "warning");
             return;
@@ -217,9 +232,9 @@ const Admin: React.FC = () => {
                 id: "",
                 status: "",
                 purpose: "",
-                returnTime: "",
+                returnDateTime: "",
+                resetTime: null,
                 timeStamp: "",
-                isoReturnTime: "",
                 imageUrl: imageUrl,
             };
 
@@ -271,8 +286,6 @@ const Admin: React.FC = () => {
         id: string,
         event: React.MouseEvent<HTMLButtonElement>
     ) => {
-        event.preventDefault();
-
         try {
             const vehicleDocRef = doc(db, "vehicles", id);
             const vehicleDoc = await getDoc(vehicleDocRef);
@@ -298,8 +311,6 @@ const Admin: React.FC = () => {
     const [passwordValid, setPasswordValid] = useState<boolean>(false);
     const navigate = useNavigate();
 
-
-
     useEffect(() => {
         const adminStatus = checkAdminLoginStatus();
         setIsAdminLoggedIn(adminStatus);
@@ -309,7 +320,7 @@ const Admin: React.FC = () => {
         setPassword(event.target.value);
     }
 
-    const LOGIN_EXPIRATION_TIME = 5 * 60 * 1000;
+    const LOGIN_EXPIRATION_TIME = 30 * 60 * 1000;
 
     const handleConfirmPassword = async (event: React.MouseEvent<HTMLButtonElement>) => {
         event.preventDefault();
@@ -329,7 +340,7 @@ const Admin: React.FC = () => {
                     const adminStatus = checkAdminLoginStatus();
                     setIsAdminLoggedIn(adminStatus);
                 } else {
-                    console.log("wrong password");
+                    showAlertMessage("Password salah!", "danger");
                 }
             }
         }
@@ -342,11 +353,31 @@ const Admin: React.FC = () => {
 
     return (
         <div>
-            <Header />
+            <Header
+                admin={true}
+                loggedIn={isAdminLoggedIn}
+                changePWSuccess={() => {
+                    showAlertMessage("Password berhasil diubah", "success");
+                }}
+            />
+            {showAlert && (
+                <div
+                    className={"alert alert-" + alertType + " alert-dismissible"}
+                    role="alert"
+                    style={{
+                        position: "fixed",
+                        left: 0,
+                        right: 0,
+                        zIndex: 1000,
+                    }}
+                >
+                    {alertMessage}
+                </div>
+            )}
             {!isAdminLoggedIn ? (
                 <div id="admin-form-container">
                     <div id="popup-wrapper">
-                        <div id="popup-content">
+                        <div id="popup-content" style={{maxWidth:"400px"} }>
                             <div className="row">
                                 <div id="popup-header">
                                     <label>
@@ -360,41 +391,23 @@ const Admin: React.FC = () => {
                                     </button>
                                 </div>
 
-                                <div>
-                                    <form className="row">
-                                        <div className="col-6">
-                                            <input type="password" className="form-control" placeholder="Password"
-                                                value={password}
-                                                onChange={(e) => handlePasswordInputChange(e)}
-                                            />
-                                        </div>
-                                        <div className="col-2">
-                                            <button type="submit" className="btn btn-primary"
-                                                onClick={(e) => handleConfirmPassword(e)}
+                                <form>
+                                    <div id="admin-popup-content">
+                                        <input type="password" className="form-control" placeholder="Password"
+                                            value={password}
+                                            onChange={(e) => handlePasswordInputChange(e)}
+                                        />
+                                        <button type="submit" className="btn btn-primary"
+                                            onClick={(e) => handleConfirmPassword(e)}
                                             >Masuk</button>
-                                        </div>
-                                    </form>
-                                </div>
+                                    </div>
+                                </form>
                             </div>
                         </div>
                     </div>
                 </div>
             ) : (
                 <div>
-                    {showAlert && (
-                        <div
-                            className={"alert alert-" + alertType + " alert-dismissible"}
-                            role="alert"
-                            style={{
-                                position: "fixed",
-                                left: 0,
-                                right: 0,
-                                zIndex: 1000,
-                            }}
-                        >
-                            {alertMessage}
-                        </div>
-                    )}
                     <div id="admin-form-container">
                         <div>
                             <form>
@@ -499,8 +512,8 @@ const Admin: React.FC = () => {
                                                                         id="button"
                                                                         style={{ backgroundColor: "#dc3545" }}
                                                                         onClick={(e) => {
+                                                                            e.preventDefault();
                                                                             if (user.vehicleId) {
-                                                                                e.preventDefault();
                                                                                 showAlertMessage(
                                                                                     "Tidak dapat dihapus, pengguna sedang meminjam",
                                                                                     "danger"
@@ -632,6 +645,7 @@ const Admin: React.FC = () => {
                                         <input
                                             className="form-control mb-2"
                                             type="file"
+                                            ref={imageFileRef }
                                             onChange={(e) => handleFileChange(e)}
                                             accept="image/*"
                                         />
@@ -675,7 +689,7 @@ const Admin: React.FC = () => {
                                             <button
                                                 onClick={(e) => {
                                                     e.preventDefault();
-                                                    ExportToExcel("vehicles", "vehicles_data");
+                                                    ExportVehicleToExcel("vehicles_data", vehicles);
                                                 }}
                                                 style={{ border: "none", borderRadius: "4px", margin: "0px" }}
                                             >
@@ -708,7 +722,10 @@ const Admin: React.FC = () => {
                                                     >
                                                         <div className="accordion-body">
                                                             <VehicleDetailsByIndex
-                                                                idx={index}
+                                                                index={index}
+                                                                onSaveClick={() => {
+                                                                    showAlertMessage("Data kendaraan berhasil disimpan", "success");
+                                                                }}
                                                             />
                                                             <div className="row">
                                                                 <button
@@ -716,8 +733,8 @@ const Admin: React.FC = () => {
                                                                     id="button"
                                                                     style={{ backgroundColor: "#dc3545" }}
                                                                     onClick={(e) => {
+                                                                        e.preventDefault();
                                                                         if (!vehicle.isReady) {
-                                                                            e.preventDefault();
                                                                             showAlertMessage(
                                                                                 "Tidak dapat dihapus, kendaraan sedang digunakan",
                                                                                 "danger"

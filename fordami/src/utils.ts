@@ -20,7 +20,6 @@ export const checkAdminLoginStatus = (): boolean => {
             return true;
         }
     }
-
     return false;
 }
 
@@ -29,4 +28,14 @@ export const getPercentageColor = (percentage: number) => {
     if (percentage >= 50) return "#ffc107";
     if (percentage >= 25) return "#fd7e14";
     return "#dc3545";
+};
+
+export const getTimestamp = (): string => {
+    const now = new Date();
+    const day = String(now.getDate()).padStart(2, "0");
+    const month = String(now.getMonth() + 1).padStart(2, "0"); // Months are 0-indexed
+    const year = String(now.getFullYear()).slice(-2);
+    const hours = String(now.getHours()).padStart(2, "0");
+    const minutes = String(now.getMinutes()).padStart(2, "0");
+    return `${day}/${month}/${year} ${hours}.${minutes}`;
 };
