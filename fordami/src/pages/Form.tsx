@@ -4,10 +4,21 @@ import { Header } from "../components/Header";
 import { Footer } from "../components/Footer";
 import { useVehicles, useVehiclesStatusCheck } from "../components/VehicleContext";
 import { useUsers } from "../components/UserContext";
-import { doc, updateDoc } from "firebase/firestore";
-import { getTimestamp } from "../utils";
+import { doc, addDoc, updateDoc, collection } from "firebase/firestore";
+import { getTimestamp, formatDateTime } from "../utils";
 import { db } from "../lib/Firebase";
 import "../styles/Form.css";
+
+
+interface HistoryProps {
+    userName: string,
+    vehicleName: string,
+    vehicleNumber: string,
+    purpose: string,
+    returnDateTime: string,
+    dateTime: string,
+    id: string,
+};
 
 const Form = () => {
     const [selectedUser, setSelectedUser] = useState<number>(-1);
@@ -102,9 +113,25 @@ const Form = () => {
 
             vehicles[selectedVehicle].isReady = false;
 
+            const newHistory: HistoryProps = {
+                userName: user.name,
+                vehicleName: vehicle.kind,
+                vehicleNumber: vehicle.number,
+                purpose: purpose,
+                returnDateTime: formatDateTime(returnDateTime),
+                dateTime: getTimestamp(),
+                id: "",
+            };
+
+            const docRef = await addDoc(collection(db, "history"), newHistory);
+            updateDoc(docRef, { id: docRef.id });
+            newHistory.id = docRef.id;
+            user.borrowId = docRef.id;
+
             const userDocRef = doc(db, "users", userId);
             await updateDoc(userDocRef, {
                 vehicleId: vehicleId,
+                borrowId: docRef.id
             });
 
             setShowConfirmPopup(false);
@@ -188,8 +215,8 @@ const Form = () => {
                                     type="text"
                                     value={purpose}
                                     className="form-control"
-                                    placeholder="Kuala kencana"
                                     onChange={handlePurposeInputChange}
+                                    placeholder="Masukkan tujuan"
                                     onClick={() => setShowPurposeWarn(false)}
                                 />
                                 {showPurposeWarn && (
@@ -203,7 +230,7 @@ const Form = () => {
                         <div id="form-user-input">
                             <form onSubmit={handleSubmit}>
                                 <label className="form-label">
-                                    Jam Pengembalian (estimasi)
+                                    Waktu Pengembalian
                                 </label>
 
                                 <input
@@ -301,11 +328,11 @@ const Form = () => {
 
                                             <div className="row">
                                                 <div className="col">
-                                                    <label>Jam Pengembalian</label>
+                                                    <label>Waktu Pengembalian</label>
                                                 </div>
                                                 <div className="col">
                                                     <label>
-                                                        {returnDateTime.length == 0 ? "-" : returnDateTime.replace("T", "; Jam ")}
+                                                        {returnDateTime.length == 0 ? "-" : formatDateTime(returnDateTime)}
                                                     </label>
                                                 </div>
                                             </div>

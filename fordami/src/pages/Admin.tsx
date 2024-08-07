@@ -1,19 +1,9 @@
-import React, { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
-import { Header } from "../components/Header";
-import { Footer } from "../components/Footer";
-import { CircularPercentage } from "../components/CircularPercentage";
+
 import {
     VehicleDetailsById,
     VehicleDetailsByIndex,
     useVehiclesStatusCheck
 } from "../components/VehicleContext";
-import { useVehicles, VehicleProps } from "../components/VehicleContext";
-import { useUsers, UserProps } from "../components/UserContext";
-import { deleteObject, ref } from "firebase/storage";
-import { db, storage } from "../lib/Firebase";
-import { uploadImage } from "../components/ImageUpload";
-import { ExportVehicleToExcel } from "../components/ExportToExcel";
 import {
     checkAdminLoginStatus,
     getOrCreateComputerId,
@@ -31,7 +21,17 @@ import{
   where,
   updateDoc,
 } from "firebase/firestore";
-
+import React, { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
+import { Header } from "../components/Header";
+import { Footer } from "../components/Footer";
+import { CircularPercentage } from "../components/CircularPercentage";
+import { useVehicles, VehicleProps } from "../components/VehicleContext";
+import { useUsers, UserProps } from "../components/UserContext";
+import { getStorage, deleteObject, ref } from "firebase/storage";
+import { db, storage } from "../lib/Firebase";
+import { uploadImage } from "../components/ImageUpload";
+import { ExportToExcel } from "../components/ExportToExcel";
 import "../styles/Admin.css";
 
 const getStatusColor = (ready: boolean) => {
@@ -65,6 +65,7 @@ const Admin: React.FC = () => {
 
         const newUser: UserProps = {
             name: userName,
+            borrowId: "",
             id: "",
             vehicleId: "",
         };
@@ -97,6 +98,7 @@ const Admin: React.FC = () => {
 
     const handleUserResetBt = async (
         id: string,
+        borrowId: string,
         vehicleId: string,
         event: React.MouseEvent<HTMLButtonElement>) => {
         event.preventDefault();
@@ -117,6 +119,13 @@ const Admin: React.FC = () => {
             await updateDoc(userDocRef, {
                 vehicleId: "",
             });
+
+            const historyCollectionRef = collection(db, "history");
+            const q = query(historyCollectionRef, where("id", "==", borrowId));
+            const querySnapshot = await getDocs(q);
+
+            const deletePromises = querySnapshot.docs.map(docSnapshot => deleteDoc(docSnapshot.ref));
+            await Promise.all(deletePromises);
         } catch (error) {
             console.error("Failed to reset user:", error);
         }
@@ -147,21 +156,17 @@ const Admin: React.FC = () => {
     const [imageFile, setImageFile] = useState<File | null>(null);
     const [imageUrl, setImageUrl] = useState<string>("");
 
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         e.preventDefault();
         if (e.target.files) {
-            setImageFile(e.target.files[0]);
+            const selectedImage = e.target.files[0];
+            setImageFile(selectedImage);
+            const newImage = await uploadImage(selectedImage);
+            setImageUrl(newImage);
+            showAlertMessage("Gambar berhasil diupload", "success");
         }
     };
 
-    const handleUploadBt = async (e: React.MouseEvent<HTMLButtonElement>) => {
-        e.preventDefault();
-        if (imageFile) {
-            const imageUrl = await uploadImage(imageFile);
-            setImageUrl(imageUrl);
-            showAlertMessage("Gambah berhasil diupload", "success");
-        }
-    };
 
     const statusColor = getStatusColor(isReady);
     const percentageColor = getPercentageColor(bbm);
@@ -294,15 +299,19 @@ const Admin: React.FC = () => {
                 const vehicleData = vehicleDoc.data() as VehicleProps;
 
                 if (vehicleData.imageUrl.length > 0) {
+
                     const imageRef = ref(storage, vehicleData.imageUrl);
-                    await deleteObject(imageRef);
+                    try {
+                        await deleteObject(imageRef);
+                    } catch {
+                    }
                 }
 
                 await deleteDoc(vehicleDocRef);
                 showAlertMessage("Kendaraan berhasil dihapus", "success");
             }
         } catch (error) {
-            showAlertMessage("Gagal mengghasil kendaraan", "danger");
+            showAlertMessage("Gagal menghapus kendaraan", "danger");
         }
     };
 
@@ -360,6 +369,13 @@ const Admin: React.FC = () => {
         navigate("/");
     }
 
+    const handleExportToExcel = async (
+        event: React.MouseEvent<HTMLButtonElement>
+    ) => {
+        event.preventDefault();
+        ExportToExcel("history_data");
+    }
+
     return (
         <div>
             <Header
@@ -386,7 +402,7 @@ const Admin: React.FC = () => {
             {!isAdminLoggedIn ? (
                 <div id="admin-form-container">
                     <div id="popup-wrapper">
-                        <div id="popup-content" style={{maxWidth:"400px"} }>
+                        <div id="popup-content" style={{ maxWidth: "400px" }}>
                             <div className="row">
                                 <div id="popup-header">
                                     <label>
@@ -408,7 +424,7 @@ const Admin: React.FC = () => {
                                         />
                                         <button type="submit" className="btn btn-primary"
                                             onClick={(e) => handleConfirmPassword(e)}
-                                            >Masuk</button>
+                                        >Masuk</button>
                                     </div>
                                 </form>
                             </div>
@@ -506,6 +522,7 @@ const Admin: React.FC = () => {
                                                                                 onClick={(e) =>
                                                                                     handleUserResetBt(
                                                                                         user.id,
+                                                                                        user.borrowId,
                                                                                         user.vehicleId,
                                                                                         e
                                                                                     )
@@ -650,34 +667,25 @@ const Admin: React.FC = () => {
                                         </div>
                                     </div>
 
-                                    <div className="row">
+                                        <div className="row" style={{justifyContent:"center"} }>
                                         <input
                                             className="form-control mb-2"
                                             type="file"
-                                            ref={imageFileRef }
+                                            ref={imageFileRef}
                                             onChange={(e) => handleFileChange(e)}
                                             accept="image/*"
                                         />
                                         {imageUrl && (
                                             <img
                                                 src={imageUrl}
-                                                style={{ width: "200px", height: "200px" }}
+                                                    style={{
+                                                        width: "200px",
+                                                        height: "200px",
+                                                        objectFit:"contain"
+                                                    }}
                                             />
                                         )}
                                     </div>
-
-                                    {imageFile && (
-                                        <div className="row">
-                                            <button
-                                                className="btn"
-                                                id="button"
-                                                onClick={(e) => handleUploadBt(e)}
-                                                style={{ backgroundColor: "#00788d" }}
-                                            >
-                                                Upload
-                                            </button>
-                                        </div>
-                                    )}
 
                                     <div className="row">
                                         <button
@@ -696,10 +704,7 @@ const Admin: React.FC = () => {
                                         </div>
                                         <div className="col" style={{ padding: "0px", alignContent: "center" }}>
                                             <button
-                                                onClick={(e) => {
-                                                    e.preventDefault();
-                                                    ExportVehicleToExcel("vehicles_data", vehicles);
-                                                }}
+                                                onClick={(e) => { handleExportToExcel(e); }}
                                                 style={{ border: "none", borderRadius: "4px", margin: "0px" }}
                                             >
                                                 Export to Excel

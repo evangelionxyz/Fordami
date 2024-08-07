@@ -11,16 +11,20 @@ import {
     QuerySnapshot,
     DocumentSnapshot
 } from "firebase/firestore";
-import { vehiclesCollection } from "../lib/Controller";
-import { db } from "../lib/Firebase";
-import React, {
-  createContext,
-  ReactNode,
-  useContext,
-  useEffect,
-  useState,
-} from "react";
 
+import React, {
+    createContext,
+    ReactNode,
+    useContext,
+    useEffect,
+    useState,
+    useRef
+} from "react";
+import { vehiclesCollection } from "../lib/Controller";
+import { db, storage } from "../lib/Firebase";
+import { deleteObject, ref } from "firebase/storage";
+import { uploadImage } from "../components/ImageUpload";
+import { formatDateTime } from "../utils";
 import "../styles/VehicleDetails.css";
 
 export interface VehicleProps {
@@ -111,7 +115,7 @@ interface VehicleDetailsProps {
     onSaveClick?: () => void;
 }
 
-export const VehicleDetailsByIndex = ({ index, onSaveClick }: VehicleDetailsProps ) => {
+export const VehicleDetailsByIndex = ({ index, onSaveClick }: VehicleDetailsProps) => {
     const getPercentageColor = () => {
         if (vehicle.bbm) {
             if (vehicle.bbm >= 75) return "#28a745";
@@ -128,6 +132,10 @@ export const VehicleDetailsByIndex = ({ index, onSaveClick }: VehicleDetailsProp
     const [umbrella, setUmbrella] = useState(true);
     const [spareTire, setSpareTire] = useState(true);
     const [jack, setJack] = useState(true);
+    const [currentImgUrl, setCurrentImgUrl] = useState<string>("");
+    const imageFileRef = useRef<HTMLInputElement>(null);
+    const [imageFile, setImageFile] = useState<File | null>(null);
+    const [imageUrl, setImageUrl] = useState<string>("");
 
     const vehicle = vehicles[index];
     let editVehicle = vehicle;
@@ -164,6 +172,9 @@ export const VehicleDetailsByIndex = ({ index, onSaveClick }: VehicleDetailsProp
         setEditing(true);
         editVehicle = vehicle;
 
+        // set current vehicle's image url
+        setCurrentImgUrl(editVehicle.imageUrl);
+
         setP3k(editVehicle.p3k);
         setUmbrella(editVehicle.umbrella);
         setJack(editVehicle.jack);
@@ -183,21 +194,58 @@ export const VehicleDetailsByIndex = ({ index, onSaveClick }: VehicleDetailsProp
         setEditing(false);
 
         try {
+            // delete old image url
+            if (currentImgUrl.length > 0) {
+                const isUrlBeingUsed = vehicles.some(vehicle => vehicle.imageUrl === currentImgUrl);
+                if (!isUrlBeingUsed) {
+                    const imageRef = ref(storage, currentImgUrl);
+                    await deleteObject(imageRef);
+                }
+            }
+
             const vehicleDocRef = doc(db, "vehicles", vehicle.id);
             await updateDoc(vehicleDocRef, {
+                imageUrl: imageUrl,
                 bbm: editVehicle.bbm,
                 p3k: editVehicle.p3k,
                 umbrella: editVehicle.umbrella,
                 jack: editVehicle.jack,
                 spareTire: editVehicle.spareTire
             });
+
             if (onSaveClick) {
                 onSaveClick();
             }
-            
+
         } catch (error) {
             console.error("Failed to update vehicle: ", error);
         }
+    }
+
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        e.preventDefault();
+
+        if (e.target.files) {
+            const selectedFile = e.target.files[0];
+            setImageFile(selectedFile);
+
+            const newImageUrl = await uploadImage(selectedFile);
+            setImageUrl(newImageUrl);
+            console.log("Image uploaded", newImageUrl);
+        }
+    }
+
+    const handleVehicleCancelEdit = async (e: React.MouseEvent<HTMLButtonElement>) => {
+        e.preventDefault();
+
+        // delete old image url
+        if (imageUrl.length > 0) {
+            const imageRef = ref(storage, imageUrl);
+            await deleteObject(imageRef);
+        }
+
+        setImageUrl("");
+        setEditing(false);
     }
 
     return (
@@ -223,9 +271,25 @@ export const VehicleDetailsByIndex = ({ index, onSaveClick }: VehicleDetailsProp
                     </div>
                     <div className="col-6">
                         <div className="row">
-                            <img style={{ width: "150px", height: "150px", marginBottom: "8px" }} src={vehicle.imageUrl}></img>
+                            <img
+                                style={{
+                                    width: "180px",
+                                    height: "180px",
+                                    marginBottom: "8px",
+                                    objectFit: "contain"
+                                }}
+                                src={imageUrl ? imageUrl : vehicle.imageUrl}></img>
                         </div>
                     </div>
+                    {editing && (
+                        <input
+                            className="form-control mb-2"
+                            type="file"
+                            accept="image/*"
+                            ref={imageFileRef}
+                            onChange={(e) => handleFileChange(e)}
+                        />
+                    )}
                 </div>
 
                 <div className="row" id="vd-form-content">
@@ -257,7 +321,7 @@ export const VehicleDetailsByIndex = ({ index, onSaveClick }: VehicleDetailsProp
                         <label className="form-label">Jam Pengembalian</label>
                     </div>
                     <div className="col-6">
-                        <label className="form-label">{vehicle.returnDateTime ? vehicle.returnDateTime.replace("T", "; ") + " WIT" : "Belum ada"}
+                        <label className="form-label">{vehicle.returnDateTime ? formatDateTime(vehicle.returnDateTime) + " WIT" : "Belum ada"}
                         </label>
                     </div>
                 </div>
@@ -396,24 +460,52 @@ export const VehicleDetailsByIndex = ({ index, onSaveClick }: VehicleDetailsProp
                             </div>
                         </>
                     )}
-                    
+
                 </div>
             </div>
 
             <div className="row">
                 {editing && vehicle.isReady ? (
-                    <button
-                        className="btn"
-                        id="button"
-                        style={{ backgroundColor: "#00788d" }}
-                        onClick={(e) => {
-                            e.preventDefault();
-                            if (vehicle.isReady) {
-                                handleVehicleSaveBt(e);
-                            }
-                        }}
-                    >Simpan
-                    </button>
+                    <>
+                        <div className="col-6">
+                            <button
+                                className="btn"
+                                id="button"
+                                style={{
+                                    backgroundColor: "#dc3545",
+                                    color: "white",
+                                    marginTop: "10px",
+                                    width: "100%"
+                                }}
+                                onClick={(e) => {
+                                    handleVehicleCancelEdit(e);
+                                }}
+                            >Batal
+                            </button>
+                        </div>
+
+                        <div className="col-6">
+                            <button
+                                className="btn"
+                                id="button"
+                                style={{
+                                    backgroundColor: "#00788d",
+                                    color: "white",
+                                    marginTop: "10px",
+                                    width: "100%"
+                                }}
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    if (vehicle.isReady) {
+                                        handleVehicleSaveBt(e);
+                                    }
+                                }}
+                            >Simpan
+                            </button>
+                        </div>
+
+                    </>
+
                 ) : !editing && vehicle.isReady && (
                     <button
                         className="btn"
@@ -435,7 +527,7 @@ export const VehicleDetailsByIndex = ({ index, onSaveClick }: VehicleDetailsProp
 
         </>
     );
-}
+};
 
 export const VehicleDetailsById = ({ vehicleId }: { vehicleId: string }) => {
     const [vehicle, setVehicle] = useState<VehicleProps | null>(null);
@@ -481,7 +573,7 @@ export const VehicleDetailsById = ({ vehicleId }: { vehicleId: string }) => {
                     <label>Time Stamp</label>
                 </div>
                 <div className="col">
-                    <label>{vehicle.timeStamp.replaceAll("/", "-").replace(".",":")} WIT</label>
+                    <label>{vehicle.timeStamp} WIT</label>
                 </div>
             </div>
 
@@ -490,7 +582,7 @@ export const VehicleDetailsById = ({ vehicleId }: { vehicleId: string }) => {
                     <label>Waktu Pengembalian</label>
                 </div>
                 <div className="col">
-                    <label>{vehicle.returnDateTime.replace("T", "; ")} WIT</label>
+                    <label>{formatDateTime(vehicle.returnDateTime)} WIT</label>
                 </div>
             </div>
         </>

@@ -20,13 +20,14 @@ export const Header: React.FC<HeaderProps> = ({ admin, loggedIn, changePWSuccess
     const [newPassword, setNewPassword] = useState<string>("");
     const [failedChangePassword, setFailedChangePassword] = useState<boolean>(false);
     const [settingsIconUrl, setSettingsIconUrl] = useState("");
-
+    const [imageLoaded, setImageLoaded] = useState<boolean>(false);
     useEffect(() => {
         const fetchIconUrl = async () => {
             try {
                 const iconRef = ref(storage, "settings.svg");
                 const url = await getDownloadURL(iconRef);
                 setSettingsIconUrl(url);
+                setImageLoaded(true);
             } catch (err) {
                 console.error("Error fetching icon URL: ", err);
             }
@@ -106,15 +107,17 @@ export const Header: React.FC<HeaderProps> = ({ admin, loggedIn, changePWSuccess
                         </div>
                     ) : admin && (
                         <div id="header-content">
-                                <div id="h-admin" onClick={() => {
-                                    if (loggedIn) {
-                                        setOpenSettings(true)
-                                    }
-                                }}>
+                            <div id="h-admin" onClick={() => {
+                                if (loggedIn) {
+                                    setOpenSettings(true)
+                                }
+                            }}>
+                                {imageLoaded && (
                                     <img src={settingsIconUrl} alt="settings" style={{
                                         height: "1.8rem",
                                         filter: "invert(1) brightness(100%)"
                                     }} />
+                                )}
                             </div>
                         </div>
                     )}
@@ -179,7 +182,6 @@ export const Header: React.FC<HeaderProps> = ({ admin, loggedIn, changePWSuccess
                                                 Batal
                                             </button>
                                         </div>
-
                                         <div className="col-6">
                                             <button
                                                 className="btn"

@@ -10,6 +10,7 @@ import { usersCollection } from "../lib/Controller";
 
 export interface UserProps {
     id: string;
+    borrowId: string;
     name: string;
     vehicleId: string;
 }
