@@ -1,4 +1,3 @@
-
 import {
     VehicleDetailsById,
     VehicleDetailsByIndex,
@@ -22,13 +21,13 @@ import{
   updateDoc,
 } from "firebase/firestore";
 import React, { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useFetcher, useNavigate } from "react-router-dom";
 import { Header } from "../components/Header";
 import { Footer } from "../components/Footer";
 import { CircularPercentage } from "../components/CircularPercentage";
 import { useVehicles, VehicleProps } from "../components/VehicleContext";
 import { useUsers, UserProps } from "../components/UserContext";
-import { getStorage, deleteObject, ref } from "firebase/storage";
+import { getStorage, deleteObject, ref, getMetadata } from "firebase/storage";
 import { db, storage } from "../lib/Firebase";
 import { uploadImage } from "../components/ImageUpload";
 import { ExportToExcel } from "../components/ExportToExcel";
@@ -57,6 +56,7 @@ const Admin: React.FC = () => {
     const handleUserNameInputChange = (
         event: React.ChangeEvent<HTMLInputElement>
     ) => {
+        event.preventDefault();
         setUserName(event.target.value);
     };
 
@@ -111,9 +111,10 @@ const Admin: React.FC = () => {
                 isReady: true,
                 status: "",
                 purpose: "",
-                returnHours: "",
-                reseTime: null,
+                resetTime: null,
                 timeStamp: "",
+                returnDateTime: "",
+
             });
 
             await updateDoc(userDocRef, {
@@ -135,6 +136,8 @@ const Admin: React.FC = () => {
         id: string,
         event: React.MouseEvent<HTMLButtonElement>
     ) => {
+        event.preventDefault();
+
         try {
             const docRef = doc(db, "users", id);
             await deleteDoc(docRef);
@@ -146,18 +149,17 @@ const Admin: React.FC = () => {
     // Kendaraan =============================
     const [vehicleKind, setVehicleKind] = useState<string>("");
     const [vehicleNumber, setVehicleNumber] = useState<string>("");
+    const [inventoryItems, setInventoryItems] = useState<string[]>(["Payung", "P3K", "Dongkrak", "Ban Serep"]);
+    const [newInventory, setNewInventory] = useState<string>("");
     const [bbm, setBbm] = useState(100);
     const [isReady, setIsReady] = useState(true);
-    const [p3k, setP3k] = useState(true);
-    const [umbrella, setUmbrella] = useState(true);
-    const [spareTire, setSpareTire] = useState(true);
-    const [jack, setJack] = useState(true);
     const imageFileRef = useRef<HTMLInputElement>(null);
     const [imageFile, setImageFile] = useState<File | null>(null);
     const [imageUrl, setImageUrl] = useState<string>("");
 
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         e.preventDefault();
+
         if (e.target.files) {
             const selectedImage = e.target.files[0];
             setImageFile(selectedImage);
@@ -167,46 +169,60 @@ const Admin: React.FC = () => {
         }
     };
 
-
     const statusColor = getStatusColor(isReady);
     const percentageColor = getPercentageColor(bbm);
     const { vehicles } = useVehicles();
-
     useVehiclesStatusCheck(vehicles);
 
-    const handleP3kChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-        setP3k(event.target.checked);
-    };
+    const handleInventoryDeleteBt =(
+        event: React.MouseEvent<HTMLButtonElement>,
+        idx: number
+    ) => {
+        event.preventDefault();
+        setInventoryItems(prevItems => prevItems.filter((_, index) => index !== idx));
+    }
 
-    const handleUmbrellaChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-        setUmbrella(event.target.checked);
-    };
-
-    const handleSpareTireChange = (
+    const handleNewInventoryInputChange = (
         event: React.ChangeEvent<HTMLInputElement>
     ) => {
-        setSpareTire(event.target.checked);
+        event.preventDefault();
+        setNewInventory(event.target.value);
     };
 
-    const handleJackChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-        setJack(event.target.checked);
-    };
+    const handleNewInventoryAddBt = (
+        event: React.MouseEvent<HTMLButtonElement>
+    ) => {
+        event.preventDefault();
+        if (newInventory.length > 0) {
+            const newInventoryLower = newInventory.toLowerCase();
+            if(inventoryItems.some(item => item.toLowerCase() === newInventoryLower)) {
+                showAlertMessage("Inventaris sudah ada", "danger");
+            } else {
+                setInventoryItems(prevItems => [...prevItems, newInventory]);
+                setNewInventory("");
+            }
+        }
+    }
 
     const handleVehicleKindInputChange = (
         event: React.ChangeEvent<HTMLInputElement>
     ) => {
+        event.preventDefault();
         setVehicleKind(event.target.value);
     };
 
     const handleVehicleNumberInputChange = (
         event: React.ChangeEvent<HTMLInputElement>
     ) => {
+        event.preventDefault();
         setVehicleNumber(event.target.value);
     };
 
     const handleBBMPercentageInputChange = (
         event: React.ChangeEvent<HTMLInputElement>
     ) => {
+        event.preventDefault();
+
         let n = Number(event.target.value);
         n = Math.max(0, Math.min(100, n));
         setBbm(n);
@@ -229,11 +245,8 @@ const Admin: React.FC = () => {
                 kind: vehicleKind,
                 number: vehicleNumber,
                 isReady: true,
+                invItems: inventoryItems,
                 bbm: bbm,
-                p3k: p3k,
-                umbrella: umbrella,
-                spareTire: spareTire,
-                jack: jack,
                 id: "",
                 status: "",
                 purpose: "",
@@ -270,11 +283,6 @@ const Admin: React.FC = () => {
                     setVehicleNumber("");
                     setBbm(100);
                     setIsReady(true);
-                    setP3k(true);
-                    setUmbrella(true);
-                    setSpareTire(true);
-                    setJack(true);
-
                     setImageFile(null);
                     setImageUrl("");
                 }
@@ -289,8 +297,10 @@ const Admin: React.FC = () => {
 
     const handleVehicleDeleteBt = async (
         id: string,
-        event: React.MouseEvent<HTMLButtonElement>
+        e: React.MouseEvent<HTMLButtonElement>
     ) => {
+        e.preventDefault();
+
         try {
             const vehicleDocRef = doc(db, "vehicles", id);
             const vehicleDoc = await getDoc(vehicleDocRef);
@@ -298,12 +308,12 @@ const Admin: React.FC = () => {
             if (vehicleDoc.exists()) {
                 const vehicleData = vehicleDoc.data() as VehicleProps;
 
-                if (vehicleData.imageUrl.length > 0) {
-
+                if(vehicleData.imageUrl) {
                     const imageRef = ref(storage, vehicleData.imageUrl);
                     try {
                         await deleteObject(imageRef);
-                    } catch {
+                    }
+                    catch (error) {
                     }
                 }
 
@@ -318,16 +328,13 @@ const Admin: React.FC = () => {
     const [password, setPassword] = useState<string>("");
     const [isAdminLoggedIn, setIsAdminLoggedIn] = useState<boolean>(false);
     const navigate = useNavigate();
-
     useEffect(() => {
         const checkAdminStatus = () => {
             const adminStatus = checkAdminLoginStatus();
             setIsAdminLoggedIn(adminStatus);
         }
-
         checkAdminStatus();
         const timer = setInterval(checkAdminStatus, 30000);
-
         return () => clearInterval(timer);
     }, []);
 
@@ -337,15 +344,12 @@ const Admin: React.FC = () => {
 
     /////////////////////////////////////////////////
     // LOGIN EXPIRATION
-
     const LOGIN_EXPIRATION_TIME = 30 * 60 * 1000;
-
     const handleConfirmPassword = async (event: React.MouseEvent<HTMLButtonElement>) => {
         event.preventDefault();
         if (password) {
             const adminDocRef = doc(db, "admin", "admin");
             const adminDoc = await getDoc(adminDocRef);
-
             if (adminDoc.exists()) {
                 const storedPassword = adminDoc.data().password;
                 if (storedPassword === password) {
@@ -357,6 +361,7 @@ const Admin: React.FC = () => {
                     }));
                     const adminStatus = checkAdminLoginStatus();
                     setIsAdminLoggedIn(adminStatus);
+                    setPassword("");
                 } else {
                     showAlertMessage("Password salah!", "danger");
                 }
@@ -615,59 +620,62 @@ const Admin: React.FC = () => {
 
                                     <div className="row">
                                         <label className="form-label">Inventaris Kendaraan</label>
-                                        <div className="col">
-                                            <div className="form-check">
-                                                <input
-                                                    className="form-check-input"
-                                                    type="checkbox"
-                                                    id="flexCheckP3K"
-                                                    checked={p3k}
-                                                    onChange={handleP3kChange}
-                                                />
-                                                <label className="form-check-label">P3K</label>
-                                            </div>
-                                        </div>
-                                        <div className="col">
-                                            <div className="form-check">
-                                                <input
-                                                    className="form-check-input"
-                                                    type="checkbox"
-                                                    id="flexCheckUmbrella"
-                                                    checked={umbrella}
-                                                    onChange={handleUmbrellaChange}
-                                                />
-                                                <label className="form-check-label">Payung</label>
-                                            </div>
+                                        <div id="inventory-container">
+                                            {inventoryItems.length == 0 ? (
+                                                <label>Belum ada inventaris</label>
+                                            ) : inventoryItems?.map((item, index) => (
+                                                <div id="inventory-items">
+                                                    <label>{item}</label>
+                                                    <button
+                                                        className="btn"
+                                                        id="inventory-item-button"
+                                                        onClick={(e) => {
+                                                            handleInventoryDeleteBt(e, index);
+                                                        }}
+                                                    >
+                                                        &times;
+                                                    </button>
+                                                </div>
+                                            ))}
                                         </div>
                                     </div>
-                                    <div className="row mb-2">
-                                        <div className="col">
-                                            <div className="form-check">
+                                        <div className="row">
+                                            <div
+                                                id="inventory-add-command">
                                                 <input
-                                                    className="form-check-input"
-                                                    type="checkbox"
-                                                    id="flexCheckSpareTire"
-                                                    checked={spareTire}
-                                                    onChange={handleSpareTireChange}
+                                                    type="text"
+                                                    className="form-control"
+                                                    value={newInventory}
+                                                    placeholder="Masukkan inventaris"
+                                                    onChange={(e) => {
+                                                        handleNewInventoryInputChange(e);
+                                                    }}
+                                                    onKeyDown={(e) => {
+                                                        if(e.key === "Enter") {
+                                                            e.preventDefault();
+                                                            if (newInventory.length > 0) {
+                                                                const newInventoryLower = newInventory.toLowerCase();
+                                                                if(inventoryItems.some(item => item.toLowerCase() === newInventoryLower)
+                                                                ) {
+                                                                    showAlertMessage("Inventaris sudah ada", "danger");
+                                                                } else {
+                                                                    setInventoryItems(prevItems => [...prevItems, newInventory]);
+                                                                    setNewInventory("");
+                                                                }
+                                                            }
+                                                        }
+                                                    }}
                                                 />
-                                                <label className="form-check-label">Ban Serep</label>
+                                                <button
+                                                className="btn"
+                                                style={{ backgroundColor: "#00788d", color:"white" }}
+                                                onClick={(e) => {
+                                                    handleNewInventoryAddBt(e);
+                                                }}
+                                                >Tambah</button>
                                             </div>
                                         </div>
-                                        <div className="col">
-                                            <div className="form-check">
-                                                <input
-                                                    className="form-check-input"
-                                                    type="checkbox"
-                                                    id="flexCheckJack"
-                                                    checked={jack}
-                                                    onChange={handleJackChange}
-                                                />
-                                                <label className="form-check-label">Dongkrak</label>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                        <div className="row" style={{justifyContent:"center"} }>
+                                    <div className="row" style={{ justifyContent: "center" }}>
                                         <input
                                             className="form-control mb-2"
                                             type="file"
@@ -678,11 +686,11 @@ const Admin: React.FC = () => {
                                         {imageUrl && (
                                             <img
                                                 src={imageUrl}
-                                                    style={{
-                                                        width: "200px",
-                                                        height: "200px",
-                                                        objectFit:"contain"
-                                                    }}
+                                                style={{
+                                                    width: "200px",
+                                                    height: "200px",
+                                                    objectFit: "contain"
+                                                }}
                                             />
                                         )}
                                     </div>
@@ -747,7 +755,6 @@ const Admin: React.FC = () => {
                                                                     id="button"
                                                                     style={{ backgroundColor: "#dc3545" }}
                                                                     onClick={(e) => {
-                                                                        e.preventDefault();
                                                                         if (!vehicle.isReady) {
                                                                             showAlertMessage(
                                                                                 "Tidak dapat dihapus, kendaraan sedang digunakan",

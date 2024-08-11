@@ -1,9 +1,12 @@
+/// <reference path="../utils.ts" />
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { storage } from "../lib/Firebase";
+import { generateSimpleId } from "../utils"
 
 export const uploadImage = async (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
-        const storageRef = ref(storage, "vehicle_images/" + file.name);
+        const generatedId = generateSimpleId();
+        const storageRef = ref(storage, "vehicle_images/" + generatedId + file.name);
         const uploadTask = uploadBytesResumable(storageRef, file);
         uploadTask.on(
             'state_changed',

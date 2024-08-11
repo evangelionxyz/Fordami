@@ -261,7 +261,6 @@ const Form = () => {
                                         setShowSelectUserWarn(selectedUser == -1);
                                         setShowPurposeWarn(purpose.length < 1);
                                         setShowReturnTimeWarn(returnDateTime.length < 1);
-
                                         if (
                                             selectedUser >= 0 &&
                                             purpose.length > 0 &&
@@ -332,7 +331,9 @@ const Form = () => {
                                                 </div>
                                                 <div className="col">
                                                     <label>
-                                                        {returnDateTime.length == 0 ? "-" : formatDateTime(returnDateTime)}
+                                                        {returnDateTime.length == 0
+                                                            ? "-"
+                                                            : formatDateTime(returnDateTime)}
                                                     </label>
                                                 </div>
                                             </div>
@@ -360,53 +361,9 @@ const Form = () => {
                                             </div>
                                             <div className="col">
                                                 <div className="row">
-                                                    <div className="col">
-                                                        <label>P3K</label>
-                                                    </div>
-                                                    <div className="col">
-                                                        <label>
-                                                            {vehicles[selectedVehicle]?.p3k ? "Ada" : "Tidak"}
-                                                        </label>
-                                                    </div>
-                                                </div>
-
-                                                <div className="row">
-                                                    <div className="col">
-                                                        <label>Payung</label>
-                                                    </div>
-                                                    <div className="col">
-                                                        <label>
-                                                            {vehicles[selectedVehicle]?.umbrella
-                                                                ? "Ada"
-                                                                : "Tidak"}
-                                                        </label>
-                                                    </div>
-                                                </div>
-
-                                                <div className="row">
-                                                    <div className="col">
-                                                        <label>Ban Serep</label>
-                                                    </div>
-                                                    <div className="col">
-                                                        <label>
-                                                            {vehicles[selectedVehicle]?.spareTire
-                                                                ? "Ada"
-                                                                : "Tidak"}
-                                                        </label>
-                                                    </div>
-                                                </div>
-
-                                                <div className="row">
-                                                    <div className="col">
-                                                        <label>Dongkrak</label>
-                                                    </div>
-                                                    <div className="col">
-                                                        <label>
-                                                            {vehicles[selectedVehicle]?.jack
-                                                                ? "Ada"
-                                                                : "Tidak"}
-                                                        </label>
-                                                    </div>
+                                                    {vehicles[selectedVehicle]?.invItems.map((item, index) => (
+                                                        <label>{item}</label>
+                                                    ))}
                                                 </div>
                                             </div>
                                         </div>

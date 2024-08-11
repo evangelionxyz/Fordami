@@ -26,8 +26,10 @@ import { deleteObject, ref } from "firebase/storage";
 import { uploadImage } from "../components/ImageUpload";
 import { formatDateTime } from "../utils";
 import "../styles/VehicleDetails.css";
+import Button from "./Button";
 
 export interface VehicleProps {
+    id: string;
     kind: string;
     number: string;
     isReady: boolean;
@@ -40,11 +42,7 @@ export interface VehicleProps {
     imageUrl: string;
 
     // inventory
-    p3k: boolean;
-    umbrella: boolean;
-    spareTire: boolean;
-    jack: boolean;
-    id: string;
+    invItems: string[];
 };
 
 interface VehicleContext {
@@ -128,35 +126,15 @@ export const VehicleDetailsByIndex = ({ index, onSaveClick }: VehicleDetailsProp
     const { vehicles } = useVehicles();
     const [editing, setEditing] = useState<boolean>(false);
     const [bbm, setBbm] = useState(100);
-    const [p3k, setP3k] = useState(true);
-    const [umbrella, setUmbrella] = useState(true);
-    const [spareTire, setSpareTire] = useState(true);
-    const [jack, setJack] = useState(true);
     const [currentImgUrl, setCurrentImgUrl] = useState<string>("");
     const imageFileRef = useRef<HTMLInputElement>(null);
     const [imageFile, setImageFile] = useState<File | null>(null);
+    const [newInventory, setNewInventory] = useState<string>("");
+    const [inventoryItems, setInventoryItems] = useState<string[]>([]);
     const [imageUrl, setImageUrl] = useState<string>("");
 
     const vehicle = vehicles[index];
     let editVehicle = vehicle;
-
-    const handleP3kChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-        setP3k(event.target.checked);
-    };
-
-    const handleUmbrellaChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-        setUmbrella(event.target.checked);
-    };
-
-    const handleSpareTireChange = (
-        event: React.ChangeEvent<HTMLInputElement>
-    ) => {
-        setSpareTire(event.target.checked);
-    };
-
-    const handleJackChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-        setJack(event.target.checked);
-    };
 
     const handleBBMPercentageInputChange = (
         event: React.ChangeEvent<HTMLInputElement>
@@ -171,33 +149,26 @@ export const VehicleDetailsByIndex = ({ index, onSaveClick }: VehicleDetailsProp
     ) => {
         setEditing(true);
         editVehicle = vehicle;
-
+        setInventoryItems(editVehicle.invItems);
+        
         // set current vehicle's image url
         setCurrentImgUrl(editVehicle.imageUrl);
-
-        setP3k(editVehicle.p3k);
-        setUmbrella(editVehicle.umbrella);
-        setJack(editVehicle.jack);
-        setSpareTire(editVehicle.spareTire);
-        setBbm(editVehicle.bbm);
     }
 
     const handleVehicleSaveBt = async (
         event: React.MouseEvent<HTMLButtonElement>
     ) => {
-        editVehicle.p3k = p3k;
-        editVehicle.umbrella = umbrella;
-        editVehicle.spareTire = spareTire;
-        editVehicle.jack = jack;
-        editVehicle.bbm = bbm;
-
         setEditing(false);
+
+        editVehicle.bbm = bbm;
+        if(imageUrl.length > 0) {
+            editVehicle.imageUrl = imageUrl;
+        }
 
         try {
             // delete old image url
-            if (currentImgUrl.length > 0) {
-                const isUrlBeingUsed = vehicles.some(vehicle => vehicle.imageUrl === currentImgUrl);
-                if (!isUrlBeingUsed) {
+            if(currentImgUrl.length > 0) {
+                if(currentImgUrl != editVehicle.imageUrl) {
                     const imageRef = ref(storage, currentImgUrl);
                     await deleteObject(imageRef);
                 }
@@ -205,12 +176,9 @@ export const VehicleDetailsByIndex = ({ index, onSaveClick }: VehicleDetailsProp
 
             const vehicleDocRef = doc(db, "vehicles", vehicle.id);
             await updateDoc(vehicleDocRef, {
-                imageUrl: imageUrl,
+                imageUrl: editVehicle.imageUrl,
                 bbm: editVehicle.bbm,
-                p3k: editVehicle.p3k,
-                umbrella: editVehicle.umbrella,
-                jack: editVehicle.jack,
-                spareTire: editVehicle.spareTire
+                invItems: inventoryItems
             });
 
             if (onSaveClick) {
@@ -246,6 +214,34 @@ export const VehicleDetailsByIndex = ({ index, onSaveClick }: VehicleDetailsProp
 
         setImageUrl("");
         setEditing(false);
+    }
+
+    const handleInventoryDeleteBt =(
+        event: React.MouseEvent<HTMLButtonElement>,
+        idx: number
+    ) => {
+        event.preventDefault();
+        setInventoryItems(prevItems => prevItems.filter((_, index) => index !== idx));
+    }
+
+    const handleNewInventoryInputChange = (
+        event: React.ChangeEvent<HTMLInputElement>
+    ) => {
+        event.preventDefault();
+        setNewInventory(event.target.value);
+    };
+
+    const handleNewInventoryAddBt = (
+        event: React.MouseEvent<HTMLButtonElement>
+    ) => {
+        event.preventDefault();
+        if (newInventory.length > 0) {
+            const newInventoryLower = newInventory.toLowerCase();
+            if(!inventoryItems.some(item => item.toLowerCase() === newInventoryLower)) {
+                setInventoryItems(prevItems => [...prevItems, newInventory]);
+                setNewInventory("");
+            }
+        }
     }
 
     return (
@@ -321,7 +317,9 @@ export const VehicleDetailsByIndex = ({ index, onSaveClick }: VehicleDetailsProp
                         <label className="form-label">Jam Pengembalian</label>
                     </div>
                     <div className="col-6">
-                        <label className="form-label">{vehicle.returnDateTime ? formatDateTime(vehicle.returnDateTime) + " WIT" : "Belum ada"}
+                        <label className="form-label">{vehicle.returnDateTime 
+                                ? formatDateTime(vehicle.returnDateTime) + " WIT"
+                                : "Belum ada"}
                         </label>
                     </div>
                 </div>
@@ -331,90 +329,36 @@ export const VehicleDetailsByIndex = ({ index, onSaveClick }: VehicleDetailsProp
                         <label className="form-label">Inventaris Kendaraan</label>
                     </div>
                     <div className="col-6">
-                        <div className="row">
-                            <div className="col-6">
-                                <label className="form-label">P3K</label>
-                            </div>
-                            <div className="col-6">
-                                {editing ? (
-                                    <input
-                                        className="form-check-input"
-                                        type="checkbox"
-                                        id="vd-form-inventory-content"
-                                        checked={p3k}
-                                        onChange={handleP3kChange}
-                                    />
-                                ) : (
-                                    <label className="form-label" id="vd-form-inventory-content">
-                                        {vehicle.p3k ? "Ada" : "Tidak"}
-                                    </label>
-                                )}
+                        <div className="row mb-2">
+                            {editing ? (
+                                <>
+                                    {inventoryItems.map((item, index) => (
+                                        <div style={{
+                                            display: "flex",
+                                            flexWrap: "wrap",
+                                            justifyContent: "space-between",
+                                            gap: "0.1rem"
+                                        }}>
+                                            <label>{item}</label>
+                                            <button
+                                                className="btn"
+                                                id="inventory-item-button"
 
-                            </div>
-                        </div>
-
-                        <div className="row">
-                            <div className="col-6">
-                                <label className="form-label">Ban Serep</label>
-                            </div>
-                            <div className="col-6">
-                                {editing ? (
-                                    <input
-                                        className="form-check-input"
-                                        type="checkbox"
-                                        id="vd-form-inventory-content"
-                                        checked={spareTire}
-                                        onChange={handleSpareTireChange}
-                                    />
-                                ) : (
-                                    <label className="form-label" id="vd-form-inventory-content">
-                                        {vehicle.spareTire ? "Ada" : "Tidak"}
-                                    </label>
-                                )}
-
-                            </div>
-                        </div>
-
-                        <div className="row">
-                            <div className="col-6">
-                                <label className="form-label">Payung</label>
-                            </div>
-                            <div className="col-6">
-                                {editing ? (
-                                    <input
-                                        className="form-check-input"
-                                        type="checkbox"
-                                        id="vd-form-inventory-content"
-                                        checked={umbrella}
-                                        onChange={handleUmbrellaChange}
-                                    />
-                                ) : (
-                                    <label className="form-label" id="vd-form-inventory-content">
-                                        {vehicle.umbrella ? "Ada" : "Tidak"}
-                                    </label>
-                                )}
-                            </div>
-                        </div>
-
-                        <div className="row">
-                            <div className="col-6">
-                                <label className="form-label">Dongkrak</label>
-                            </div>
-                            <div className="col-6">
-                                {editing ? (
-                                    <input
-                                        className="form-check-input"
-                                        type="checkbox"
-                                        id="vd-form-inventory-content"
-                                        checked={jack}
-                                        onChange={handleJackChange}
-                                    />
-                                ) : (
-                                    <label className="form-label" id="vd-form-inventory-content">
-                                        {vehicle.jack ? "Ada" : "Tidak"}
-                                    </label>
-                                )}
-                            </div>
+                                                onClick={(e) => {
+                                                    handleInventoryDeleteBt(e, index)
+                                                }}
+                                            >
+                                                &times;
+                                            </button>
+                                        </div>
+                                    ))}
+                                    
+                                </>
+                            ) : (
+                                vehicle.invItems.map((item, index) => (
+                                    <label>{item}</label>
+                                ))
+                            )}
                         </div>
                     </div>
                 </div>
@@ -422,6 +366,37 @@ export const VehicleDetailsByIndex = ({ index, onSaveClick }: VehicleDetailsProp
                 <div className="row" id="vd-form-content">
                     {editing ? (
                         <>
+                        <div
+                                id="inventory-add-command">
+                                <input
+                                    type="text"
+                                    className="form-control"
+                                    value={newInventory}
+                                    placeholder="Masukkan inventaris"
+                                    onChange={(e) => {
+                                        handleNewInventoryInputChange(e);
+                                    }}
+                                    onKeyDown={(e) => {
+                                        if(e.key === "Enter") {
+                                            e.preventDefault();
+                                            if (newInventory.length > 0) {
+                                                const newInventoryLower = newInventory.toLowerCase();
+                                                if(!inventoryItems.some(item => item.toLowerCase() === newInventoryLower)) {
+                                                    setInventoryItems(prevItems => [...prevItems, newInventory]);
+                                                    setNewInventory("");
+                                                }
+                                            }
+                                        }
+                                    }}
+                                />
+                                <button
+                                className="btn"
+                                style={{ backgroundColor: "#00788d", color:"white" }}
+                                onClick={(e) => {
+                                    handleNewInventoryAddBt(e);
+                                }}
+                                >Tambah</button>
+                            </div>
                             <div className="col-6" id="vd-form">
                                 <label className="form-label">Jumlah BBM</label>
                             </div>
@@ -563,7 +538,14 @@ export const VehicleDetailsById = ({ vehicleId }: { vehicleId: string }) => {
                 </div>
                 <div className="col">
                     <div className="row">
-                        <img style={{ width: "150px", height: "150px", margin: "8px" }} src={vehicle.imageUrl}></img>
+                        <img
+                            style={{
+                                width: "180px",
+                                height: "180px",
+                                marginBottom: "8px",
+                                objectFit: "contain"
+                            }}
+                            src={vehicle.imageUrl}></img>
                     </div>
                 </div>
             </div>

@@ -32,3 +32,36 @@
     gap: 20px;
     align-items: center;
 }
+
+#inventory-container {
+    display: flex;
+    font-weight: bold;
+    flex-wrap: wrap;
+    gap: 1rem;
+    padding: 0px;
+    margin: 12px;
+    align-content: center;
+}
+
+#inventory-items {
+    display: flex;
+    flex-direction: row;
+    align-content: center;
+    align-items: center;
+    padding: 0px;
+    gap: 0.5rem;
+}
+
+#inventory-item-button {
+    background:transparent;
+    align-self: end;
+    font-size: large;
+    padding: 0px
+}
+
+#inventory-add-command {
+    margin-bottom: 1rem;
+    display: flex;
+    gap: 1rem;
+    justify-content: space-between;
+}
