@@ -39,7 +39,6 @@ const Form = () => {
 
     const { vehicles } = useVehicles();
     const { users } = useUsers();
-    const { queues } = useQueues();
 
     const handleSubmit = (event: React.FormEvent) => {
         event.preventDefault();

@@ -96,42 +96,6 @@ const Admin: React.FC = () => {
         }
     };
 
-    const handleUserResetBt = async (
-        id: string,
-        borrowId: string,
-        vehicleId: string,
-        event: React.MouseEvent<HTMLButtonElement>) => {
-        event.preventDefault();
-
-        try {
-            const userDocRef = doc(db, "users", id);
-            const vehicleDocRef = doc(db, "vehicles", vehicleId);
-
-            await updateDoc(vehicleDocRef, {
-                isReady: true,
-                status: "",
-                purpose: "",
-                resetTime: null,
-                timeStamp: "",
-                returnDateTime: "",
-
-            });
-
-            await updateDoc(userDocRef, {
-                vehicleId: "",
-            });
-
-            const historyCollectionRef = collection(db, "history");
-            const q = query(historyCollectionRef, where("id", "==", borrowId));
-            const querySnapshot = await getDocs(q);
-
-            const deletePromises = querySnapshot.docs.map(docSnapshot => deleteDoc(docSnapshot.ref));
-            await Promise.all(deletePromises);
-        } catch (error) {
-            console.error("Failed to reset user:", error);
-        }
-    };
-
     const handleUserDeleteBt = async (
         id: string,
         event: React.MouseEvent<HTMLButtonElement>
@@ -387,9 +351,8 @@ const Admin: React.FC = () => {
             <Header
                 admin={true}
                 loggedIn={isAdminLoggedIn}
-                changePWSuccess={() => {
-                    showAlertMessage("Password berhasil diubah", "success");
-                }}
+                onChangePWSuccess={() => showAlertMessage("Password berhasil disimpan", "success") }
+                onConfirmQueue={() => showAlertMessage("Antrian di konfirmasi", "success")}
             />
             {showAlert && (
                 <div
@@ -493,49 +456,38 @@ const Admin: React.FC = () => {
                                                         >
                                                             <div className="accordion-body">
                                                                 <div className="row">
-                                                                    <div className="row">
-                                                                        <div className="col-6">
-                                                                            <label style={{ fontSize: "12px" }}>
-                                                                                ID
-                                                                            </label>
-                                                                        </div>
-                                                                        <div className="col-6">
-                                                                            <label style={{ fontSize: "12px" }}>
-                                                                                {user.id}
-                                                                            </label>
-                                                                        </div>
+                                                                    <div className="col-6">
+                                                                        <label style={{ fontSize: "12px" }}>
+                                                                            ID
+                                                                        </label>
+                                                                    </div>
+                                                                    <div className="col-6">
+                                                                        <label style={{ fontSize: "12px" }}>
+                                                                            {user.id}
+                                                                        </label>
                                                                     </div>
 
-                                                                    <div className="row mb-3">
-                                                                        <div className="col-6">
-                                                                            <label>Nama</label>
-                                                                        </div>
-                                                                        <div className="col-6">
-                                                                            <label>{user.name}</label>
-                                                                        </div>
+                                                                    <div className="col-6">
+                                                                        <label>Nama</label>
                                                                     </div>
-
+                                                                    <div className="col-6">
+                                                                        <label>{user.name}</label>
+                                                                    </div>
+                                                                </div>
                                                                     {user.vehicleId.length > 0 && user.borrowId.length > 0 && (
-                                                                        <>
-                                                                            <VehicleDetailsById vehicleId={user.vehicleId} />
-                                                                            <button
-                                                                                className="btn"
-                                                                                id="button"
-                                                                                style={{ backgroundColor: "#00788d" }}
-                                                                                onClick={(e) =>
-                                                                                    handleUserResetBt(
-                                                                                        user.id,
-                                                                                        user.borrowId,
-                                                                                        user.vehicleId,
-                                                                                        e
-                                                                                    )
-                                                                                }
-                                                                            >
-                                                                                Reset
-                                                                            </button>
-                                                                        </>
+                                                                        <VehicleDetailsById 
+                                                                            vehicleId={user.vehicleId} 
+                                                                            userId={user.id}
+                                                                            borrowId={user.borrowId}
+                                                                            onChangeSuccess={() => {
+                                                                                showAlertMessage("Waktu pengembalian berhasil diubah", "success");
+                                                                            }}
+                                                                            onChangeFailed={() => {
+                                                                                showAlertMessage("Gagal mengubah waktu pengembalian, masukkan dengan waktu di masa mendatang", "danger");
+                                                                            }}
+                                                                            />
                                                                     )}
-
+                                                                <div className="row">
                                                                     <button
                                                                         className="btn"
                                                                         id="button"
@@ -551,8 +503,7 @@ const Admin: React.FC = () => {
                                                                                 handleUserDeleteBt(user.id, e);
                                                                             }
                                                                         }}
-                                                                    >
-                                                                        Hapus
+                                                                    >Hapus
                                                                     </button>
                                                                 </div>
                                                             </div>
@@ -744,7 +695,7 @@ const Admin: React.FC = () => {
                                                             <VehicleDetailsByIndex
                                                                 index={index}
                                                                 onSaveClick={() => {
-                                                                    showAlertMessage("Data kendaraan berhasil disimpan", "success");
+                                                                    showAlertMessage("Data kendaraan berhasil diubah", "success");
                                                                 }}
                                                             />
                                                             <div className="row">
@@ -754,6 +705,7 @@ const Admin: React.FC = () => {
                                                                     style={{ backgroundColor: "#dc3545" }}
                                                                     onClick={(e) => {
                                                                         if (!vehicle.isReady) {
+                                                                            e.preventDefault();
                                                                             showAlertMessage(
                                                                                 "Tidak dapat dihapus, kendaraan sedang digunakan",
                                                                                 "danger"

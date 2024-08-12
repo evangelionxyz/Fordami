@@ -23,7 +23,7 @@ import React, {
 } from "react";
 import { vehiclesCollection } from "../lib/Controller";
 import { db, storage } from "../lib/Firebase";
-import { deleteObject, ref } from "firebase/storage";
+import { connectStorageEmulator, deleteObject, ref } from "firebase/storage";
 import { uploadImage } from "../components/ImageUpload";
 import { formatDateTime } from "../utils";
 import "../styles/VehicleDetails.css";
@@ -130,6 +130,7 @@ export const VehicleDetailsByIndex = ({ index, onSaveClick }: VehicleDetailsProp
     const [currentImgUrl, setCurrentImgUrl] = useState<string>("");
     const imageFileRef = useRef<HTMLInputElement>(null);
     const [imageFile, setImageFile] = useState<File | null>(null);
+    const [vehicleNumber, setVehicleNumber] = useState<string>("");
     const [newInventory, setNewInventory] = useState<string>("");
     const [inventoryItems, setInventoryItems] = useState<string[]>([]);
     const [imageUrl, setImageUrl] = useState<string>("");
@@ -154,13 +155,14 @@ export const VehicleDetailsByIndex = ({ index, onSaveClick }: VehicleDetailsProp
 
         // set current vehicle's image url
         setCurrentImgUrl(editVehicle.imageUrl);
+        setVehicleNumber(editVehicle.number);
     }
 
     const handleVehicleSaveBt = async (
         event: React.MouseEvent<HTMLButtonElement>
     ) => {
         setEditing(false);
-
+        editVehicle.number = vehicleNumber;
         editVehicle.bbm = bbm;
         if(imageUrl.length > 0) {
             editVehicle.imageUrl = imageUrl;
@@ -245,6 +247,13 @@ export const VehicleDetailsByIndex = ({ index, onSaveClick }: VehicleDetailsProp
         }
     }
 
+    const handleVehicleNumberInputChange = (
+        event: React.ChangeEvent<HTMLInputElement>
+    ) => {
+        event.preventDefault();
+        setVehicleNumber(event.target.value);
+    };
+
     return (
         <>
             <div className="row">
@@ -257,7 +266,16 @@ export const VehicleDetailsByIndex = ({ index, onSaveClick }: VehicleDetailsProp
                             <label className="form-label">{vehicle.kind}</label>
                         </div>
                         <div className="row">
-                            <label className="form-label">{vehicle.number}</label>
+                            {editing ? (
+                                <input
+                                type="text"
+                                value={vehicleNumber}
+                                className="form-control mb-2"
+                                onChange={handleVehicleNumberInputChange}
+                            ></input>
+                            ) : (
+                                <label className="form-label">{vehicle.number}</label>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -315,7 +333,7 @@ export const VehicleDetailsByIndex = ({ index, onSaveClick }: VehicleDetailsProp
 
                 <div className="row" id="vd-form-content">
                     <div className="col-6" id="vd-form">
-                        <label className="form-label">Jam Pengembalian</label>
+                        <label className="form-label">Waktu Pengembalian</label>
                     </div>
                     <div className="col-6">
                         <label className="form-label">{vehicle.returnDateTime && !vehicle.isBooked
@@ -353,7 +371,6 @@ export const VehicleDetailsByIndex = ({ index, onSaveClick }: VehicleDetailsProp
                                             </button>
                                         </div>
                                     ))}
-                                    
                                 </>
                             ) : (
                                 vehicle.invItems.map((item, index) => (
@@ -505,8 +522,20 @@ export const VehicleDetailsByIndex = ({ index, onSaveClick }: VehicleDetailsProp
     );
 };
 
-export const VehicleDetailsById = ({ vehicleId }: { vehicleId: string }) => {
+interface VehicleDetailsPropsById {
+    vehicleId: string;
+    userId: string;
+    borrowId: string
+    onChangeSuccess?: () => void;
+    onChangeFailed?: () => void;
+}
+
+export const VehicleDetailsById: React.FC<VehicleDetailsPropsById> = ({vehicleId, userId, borrowId, onChangeSuccess, onChangeFailed}) => {
     const [vehicle, setVehicle] = useState<VehicleProps | null>(null);
+    const [editing, setEditing] = useState<boolean>(false);
+    const [returnDateTime, setReturnDateTime] = useState<string>("");
+    const [resetTime, setResetTime] = useState<Date | null>(null);
+
     useEffect(() => {
         const fetchVehicle = async () => {
             const vehicleData = await getVehicleById(vehicleId);
@@ -515,7 +544,92 @@ export const VehicleDetailsById = ({ vehicleId }: { vehicleId: string }) => {
         fetchVehicle();
     }, [vehicleId]);
 
-    if (!vehicle) return <div>Loading vehicle details...</div>;
+    if (!vehicle) return <div>Memuat kendaraan</div>;
+
+    const handleResetBt = async (
+        event: React.MouseEvent<HTMLButtonElement>) => {
+        event.preventDefault();
+        try {
+            const userDocRef = doc(db, "users", userId);
+            const vehicleDocRef = doc(db, "vehicles", vehicleId);
+
+            await updateDoc(vehicleDocRef, {
+                isReady: true,
+                status: "",
+                purpose: "",
+                resetTime: null,
+                timeStamp: "",
+                returnDateTime: ""
+            });
+
+            await updateDoc(userDocRef, {
+                vehicleId: "",
+            });
+
+        } catch (error) {
+            console.error("Failed to reset user:", error);
+        }
+    };
+
+    const handleSaveEditBt = async (
+        event: React.MouseEvent<HTMLButtonElement>
+    ) => {
+        event.preventDefault();
+        setEditing(!editing);
+        if(editing && resetTime) {
+            // valid if the reset time is bigger than current vehicle's reset time.
+            const now = new Date();
+            const valid = now <= resetTime;
+
+            if(valid) {
+                const vehicleDocRef = doc(db, "vehicles", vehicleId);
+                await updateDoc(vehicleDocRef, {
+                    returnDateTime: returnDateTime,
+                    resetTime: resetTime?.toISOString(),
+                });
+
+                if(onChangeSuccess) {
+                    onChangeSuccess();
+                }
+
+                 // updates the history
+                 const historyDocRef = doc(db, "history", borrowId);
+                 await updateDoc(historyDocRef, {
+                    returnDateTime: formatDateTime(returnDateTime)
+                 });
+
+                setTimeout(() => window.location.reload(), 1000);
+                
+            } else {
+                if(onChangeFailed) {
+                    onChangeFailed();
+                }
+            }
+            setResetTime(null);
+            setReturnDateTime("");
+        }
+    }
+
+    const handleReturnTimeInputChange = (
+        event: React.ChangeEvent<HTMLInputElement>
+    ) => {
+        const dateAndTimeString = event.target.value;
+        const [datePart, timePart] = dateAndTimeString.split('T');
+        const [year, month, day] = datePart.split('-').map(Number);
+        const [hours, minutes] = timePart.split(":").map(Number);
+
+        const resetDate = new Date(
+            year,
+            month-1,
+            day,
+            hours,
+            minutes,
+            0,
+            0
+        );
+        setResetTime(resetDate);
+        setReturnDateTime(dateAndTimeString);
+    };
 
     return (
         <>
@@ -527,7 +641,7 @@ export const VehicleDetailsById = ({ vehicleId }: { vehicleId: string }) => {
                     <div className="row">
                         <label>{vehicle.kind}</label>
                     </div>
-                    <div className="row">
+                    <div className="row mb-2">
                         <label>{vehicle.number}</label>
                     </div>
                 </div>
@@ -553,7 +667,7 @@ export const VehicleDetailsById = ({ vehicleId }: { vehicleId: string }) => {
 
             <div className="row">
                 <div className="col">
-                    <label>Time Stamp</label>
+                    <label>Timestamp</label>
                 </div>
                 <div className="col">
                     <label>{vehicle.timeStamp} WIT</label>
@@ -565,7 +679,49 @@ export const VehicleDetailsById = ({ vehicleId }: { vehicleId: string }) => {
                     <label>Waktu Pengembalian</label>
                 </div>
                 <div className="col">
-                    <label>{formatDateTime(vehicle.returnDateTime)} WIT</label>
+                    {editing ? (
+                        <input
+                        type="datetime-local"
+                        value={returnDateTime}
+                        className="form-control"
+                        placeholder="2024-07-25T15:00"
+                        onChange={handleReturnTimeInputChange}
+                    />
+                    ) : (
+                        <label>{formatDateTime(vehicle.returnDateTime)} WIT</label>
+                    )
+                    }
+                </div>
+            </div>
+
+
+            <div className="row">
+                <div className="col-6">
+                    <button
+                        className="btn btn-danger"
+                        style={{
+                            color: "white",
+                            marginTop: "10px",
+                            width: "100%"
+                        }}
+                        onClick={(e) => handleResetBt(e)}
+                    >
+                        Reset
+                    </button>
+                </div>
+                <div className="col-6">
+                    <button
+                        className="btn"
+                        style={{
+                            color: "white",
+                            marginTop: "10px",
+                            backgroundColor: "#00788d",
+                            width: "100%"
+                        }}
+                        onClick={(e) => handleSaveEditBt(e)}
+                    >
+                        {editing ? "Simpan" : "Ubah"}
+                    </button>
                 </div>
             </div>
         </>
@@ -618,9 +774,12 @@ export function useVehiclesStatusCheck(vehicles: VehicleProps[]) {
                 setResettingVehicles([]);
             }
         };
+
         checkVehicles();
         const timer = setInterval(checkVehicles, 60000);
+
         return () => clearInterval(timer);
     }, [vehicles]);
+
     return resettingVehicles;
 };

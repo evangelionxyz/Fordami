@@ -31,10 +31,11 @@ interface HistoryProps {
 interface HeaderProps {
     admin: boolean;
     loggedIn?: boolean;
-    changePWSuccess?: () => void;
+    onConfirmQueue?: () => void;
+    onChangePWSuccess?: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ admin, loggedIn, changePWSuccess }) => {
+export const Header: React.FC<HeaderProps> = ({ admin, loggedIn, onConfirmQueue, onChangePWSuccess }) => {
     const navigate = useNavigate();
 
     const [openSettings, setOpenSettings] = useState<boolean>(false);
@@ -95,13 +96,16 @@ export const Header: React.FC<HeaderProps> = ({ admin, loggedIn, changePWSuccess
                     await updateDoc(adminDocRef, {
                         password: newPassword
                     })
-                    if (changePWSuccess) {
-                        changePWSuccess();
-                    }
+                    
                     localStorage.removeItem("computerId");
                     localStorage.removeItem("adminLoginInfo");
                     setOpenSettings(false);
                     setFailedChangePassword(false);
+
+                    if (onChangePWSuccess) {
+                        onChangePWSuccess();
+                    }
+
                 } else {
                     setFailedChangePassword(true);
                     setTimeout(() => setFailedChangePassword(false), 3000);
@@ -132,6 +136,7 @@ export const Header: React.FC<HeaderProps> = ({ admin, loggedIn, changePWSuccess
                         timeStamp: getTimestamp(),
                     })
                     
+                    // add to history when confirming
                     const newHistory: HistoryProps = {
                         userName: user.name,
                         vehicleName: vehicle.kind,
@@ -163,6 +168,10 @@ export const Header: React.FC<HeaderProps> = ({ admin, loggedIn, changePWSuccess
                     queueQuerySnapshot.forEach(async (doc) => {
                         await deleteDoc(doc.ref);
                     });
+
+                    if(onConfirmQueue) {
+                        onConfirmQueue();
+                    }
                 }
             }
         } catch(error) {
