@@ -22,7 +22,7 @@
 
 #title {
     text-align: center;
-    font-size: 1.7rem;
+    font-size: 2rem;
     font-weight: 900;
     font-style: normal;
     color: #00788d;
@@ -70,4 +70,25 @@
     display: flex;
     flex-wrap: wrap;
     flex: 1;
+}
+
+#imgBt {
+    height: 1.8rem;
+    filter: invert(1) brightness(100%);
+    margin-left: 1rem;
+}
+
+@media (width < 600px) {
+    #title {
+        font-size: 1.7rem;
+    }
+
+    #subtitle {
+        font-size: 0.7rem;
+    }
+
+    #imgBt {
+        height: 1.3rem;
+        filter: invert(1) brightness(100%);
+    }
 }

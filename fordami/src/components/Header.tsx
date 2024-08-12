@@ -13,10 +13,10 @@ from "firebase/firestore";
 import { ref, getDownloadURL } from "firebase/storage";
 import { db, storage} from "../lib/Firebase";
 import { QueueDetails, useQueues, QueueProps } from "./QueueContext";
-import "../styles/Header.css";
-import { getUserById, UserProps, useUsers } from "./UserContext";
+import { getUserById } from "./UserContext";
 import { getTimestamp, formatDateTime } from "../utils";
-import { getVehicleById, useVehicles } from "./VehicleContext";
+import { getVehicleById } from "./VehicleContext";
+import "../styles/Header.css";
 
 interface HistoryProps {
     userName: string,
@@ -218,25 +218,24 @@ export const Header: React.FC<HeaderProps> = ({ admin, loggedIn, changePWSuccess
                             <div id="h-admin">
                                 {imageLoaded && (
                                     <>
-                                        <img src={queueIconUrl} alt="settings" style={{
-                                            height: "1rem",
-                                            filter: "invert(1) brightness(100%)",
-                                            marginRight: "1.2rem"
-                                            }}
+                                        <img src={queueIconUrl} alt="queue" id="imgBt"
                                             onClick={() => {
                                                 if (loggedIn) {
                                                     setOpenQueue(true);
+                                                    if(openSettings) {
+                                                        setOpenSettings(false);
+                                                    }
                                                 }
                                             }}
                                         />
                                         
-                                        <img src={settingsIconUrl} alt="settings" style={{
-                                            height: "1rem",
-                                            filter: "invert(1) brightness(100%)"
-                                            }}
+                                        <img src={settingsIconUrl} alt="settings" id="imgBt"
                                             onClick={() => {
                                                 if (loggedIn) {
-                                                    setOpenSettings(true)
+                                                    setOpenSettings(true);
+                                                    if(openQueue) {
+                                                        setOpenQueue(false);
+                                                    }
                                                 }
                                             }}
                                         />
