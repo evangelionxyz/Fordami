@@ -21,13 +21,13 @@ import{
   updateDoc,
 } from "firebase/firestore";
 import React, { useState, useEffect, useRef } from "react";
-import { useFetcher, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { Header } from "../components/Header";
 import { Footer } from "../components/Footer";
 import { CircularPercentage } from "../components/CircularPercentage";
 import { useVehicles, VehicleProps } from "../components/VehicleContext";
 import { useUsers, UserProps } from "../components/UserContext";
-import { getStorage, deleteObject, ref, getMetadata } from "firebase/storage";
+import { deleteObject, ref } from "firebase/storage";
 import { db, storage } from "../lib/Firebase";
 import { uploadImage } from "../components/ImageUpload";
 import { ExportToExcel } from "../components/ExportToExcel";
@@ -51,7 +51,7 @@ const Admin: React.FC = () => {
 
     // User =============================
     const [userName, setUserName] = useState("");
-    const { users, setUsers } = useUsers();
+    const { users } = useUsers();
 
     const handleUserNameInputChange = (
         event: React.ChangeEvent<HTMLInputElement>
@@ -245,6 +245,7 @@ const Admin: React.FC = () => {
                 kind: vehicleKind,
                 number: vehicleNumber,
                 isReady: true,
+                isBooked: false,
                 invItems: inventoryItems,
                 bbm: bbm,
                 id: "",
@@ -514,11 +515,8 @@ const Admin: React.FC = () => {
                                                                         </div>
                                                                     </div>
 
-                                                                    {user.vehicleId.length > 0 && (
+                                                                    {user.vehicleId.length > 0 && user.borrowId.length > 0 && (
                                                                         <>
-                                                                            <div className="row">
-                                                                                <label>Detail Penggunaan</label>
-                                                                            </div>
                                                                             <VehicleDetailsById vehicleId={user.vehicleId} />
                                                                             <button
                                                                                 className="btn"

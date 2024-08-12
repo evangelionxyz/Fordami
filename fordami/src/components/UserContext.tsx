@@ -5,8 +5,16 @@ import React, {
     useEffect,
     useState,
 } from "react";
-import { DocumentData, onSnapshot, QuerySnapshot } from "firebase/firestore";
+import { DocumentData,
+    onSnapshot,
+    QuerySnapshot,
+    doc,
+    getDoc,
+    DocumentSnapshot
+} from "firebase/firestore";
+
 import { usersCollection } from "../lib/Controller";
+import { db } from "../lib/Firebase";
 
 export interface UserProps {
     id: string;
@@ -60,3 +68,21 @@ export const useUsers = (): UserContext => {
     }
     return context;
 };
+
+export const getUserById = async (id: string): Promise<UserProps | null> => {
+    try {
+        const docRef = doc(db, "users", id);
+        const docSnap: DocumentSnapshot = await getDoc(docRef);
+
+        if(docSnap.exists()) {
+            const userData = docSnap.data() as UserProps;
+            return userData;
+        } else {
+            console.log("No such document");
+            return null;
+        }
+    } catch(error) {
+        console.log("Error getting user document: ", error);
+        return null;
+    }
+}

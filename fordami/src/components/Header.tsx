@@ -1,10 +1,32 @@
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
-import { getDoc, doc, updateDoc } from "firebase/firestore";
+import { getDoc,
+    getDocs,
+    doc, 
+    updateDoc,
+    deleteDoc,
+    collection, 
+    addDoc,
+    where,
+    query }
+from "firebase/firestore";
 import { ref, getDownloadURL } from "firebase/storage";
 import { db, storage} from "../lib/Firebase";
-
+import { QueueDetails, useQueues, QueueProps } from "./QueueContext";
 import "../styles/Header.css";
+import { getUserById, UserProps, useUsers } from "./UserContext";
+import { getTimestamp, formatDateTime } from "../utils";
+import { getVehicleById, useVehicles } from "./VehicleContext";
+
+interface HistoryProps {
+    userName: string,
+    vehicleName: string,
+    vehicleNumber: string,
+    purpose: string,
+    returnDateTime: string,
+    dateTime: string,
+    id: string,
+};
 
 interface HeaderProps {
     admin: boolean;
@@ -16,17 +38,26 @@ export const Header: React.FC<HeaderProps> = ({ admin, loggedIn, changePWSuccess
     const navigate = useNavigate();
 
     const [openSettings, setOpenSettings] = useState<boolean>(false);
+    const [openQueue, setOpenQueue] = useState<boolean>(false);
     const [currentPassword, setCurrentPassword] = useState<string>("");
     const [newPassword, setNewPassword] = useState<string>("");
     const [failedChangePassword, setFailedChangePassword] = useState<boolean>(false);
-    const [settingsIconUrl, setSettingsIconUrl] = useState("");
+    const [settingsIconUrl, setSettingsIconUrl] = useState<string>("");
+    const [queueIconUrl, setQueueIconUrl] = useState<string>("");
     const [imageLoaded, setImageLoaded] = useState<boolean>(false);
+    const { queues } = useQueues();
+
     useEffect(() => {
         const fetchIconUrl = async () => {
             try {
-                const iconRef = ref(storage, "settings.svg");
-                const url = await getDownloadURL(iconRef);
-                setSettingsIconUrl(url);
+                const settingsIconRef = ref(storage, "settings.svg");
+                const settingsUrl = await getDownloadURL(settingsIconRef);
+                setSettingsIconUrl(settingsUrl);
+
+                const queueIconRef = ref(storage, "envelope.svg");
+                const queueUrl = await getDownloadURL(queueIconRef);
+                setQueueIconUrl(queueUrl);
+
                 setImageLoaded(true);
             } catch (err) {
                 console.error("Error fetching icon URL: ", err);
@@ -82,6 +113,83 @@ export const Header: React.FC<HeaderProps> = ({ admin, loggedIn, changePWSuccess
         }
     }
 
+    const handleQueueConfirmBt = async (
+        queue: QueueProps,
+        event: React.MouseEvent<HTMLButtonElement>
+    ) => {
+        event.preventDefault();
+        try {
+            const user = await getUserById(queue.userId);
+            const vehicle = await getVehicleById(queue.vehicleId);
+
+            if(user && vehicle) {
+                if(vehicle.isReady) {
+                    const vehicleDocRef = doc(db, "vehicles", queue.vehicleId);
+                    await updateDoc(vehicleDocRef, {
+                        isReady: false,
+                        isBooked: false,
+                        status: "Sedang digunakan oleh " + user.name,
+                        timeStamp: getTimestamp(),
+                    })
+                    
+                    const newHistory: HistoryProps = {
+                        userName: user.name,
+                        vehicleName: vehicle.kind,
+                        vehicleNumber: vehicle.number,
+                        purpose: vehicle.purpose,
+                        returnDateTime: formatDateTime(vehicle.returnDateTime),
+                        dateTime: getTimestamp(),
+                        id: "",
+                    }
+
+                    const historyDocRef = await addDoc(collection(db, "history"), newHistory);
+                    updateDoc(historyDocRef, {id: historyDocRef.id});
+                    newHistory.id = historyDocRef.id;
+                    user.borrowId = historyDocRef.id;
+
+                    const userDocRef = doc(db, "users", user.id);
+                    await updateDoc(userDocRef, {
+                        vehicleId: vehicle.id,
+                        borrowId: historyDocRef.id
+                    });
+
+                    // remove queue
+                    const docRef = doc(db, "queue", queue.id);
+                    await deleteDoc(docRef);
+
+                    // remove all queue with same vehicle id
+                    const queueQuery = query(collection(db, "queue"), where("vehicleId", "==", vehicle.id));
+                    const queueQuerySnapshot = await getDocs(queueQuery);
+                    queueQuerySnapshot.forEach(async (doc) => {
+                        await deleteDoc(doc.ref);
+                    });
+                }
+            }
+        } catch(error) {
+            console.log("Error failed to confirm queue:", error);
+        }
+    }
+
+    const handleQueueDeniedBt = async (
+        queue: QueueProps,
+        event: React.MouseEvent<HTMLButtonElement>
+    ) => {
+        event.preventDefault();
+        try {
+            // reset vehicle's data
+            const vehicleDocRef = doc(db, "vehicles", queue.vehicleId);
+            await updateDoc(vehicleDocRef, {
+                isBooked: false
+            });
+
+            // remove queue
+            const docRef = doc(db, "queue", queue.id);
+            await deleteDoc(docRef);
+        } catch(error) {
+            console.log("Failed to delete queue:", error);
+        }
+    }
+
     return (
         <>
             <div id="header">
@@ -107,22 +215,99 @@ export const Header: React.FC<HeaderProps> = ({ admin, loggedIn, changePWSuccess
                         </div>
                     ) : admin && (
                         <div id="header-content">
-                            <div id="h-admin" onClick={() => {
-                                if (loggedIn) {
-                                    setOpenSettings(true)
-                                }
-                            }}>
+                            <div id="h-admin">
                                 {imageLoaded && (
-                                    <img src={settingsIconUrl} alt="settings" style={{
-                                        height: "1.8rem",
-                                        filter: "invert(1) brightness(100%)"
-                                    }} />
+                                    <>
+                                        <img src={queueIconUrl} alt="settings" style={{
+                                            height: "1rem",
+                                            filter: "invert(1) brightness(100%)",
+                                            marginRight: "1.2rem"
+                                            }}
+                                            onClick={() => {
+                                                if (loggedIn) {
+                                                    setOpenQueue(true);
+                                                }
+                                            }}
+                                        />
+                                        
+                                        <img src={settingsIconUrl} alt="settings" style={{
+                                            height: "1rem",
+                                            filter: "invert(1) brightness(100%)"
+                                            }}
+                                            onClick={() => {
+                                                if (loggedIn) {
+                                                    setOpenSettings(true)
+                                                }
+                                            }}
+                                        />
+                                    </>
                                 )}
                             </div>
                         </div>
                     )}
                 </div>
             </div>
+
+            {admin && loggedIn && openQueue && (
+                <div id="popup-wrapper">
+                    <div id="popup-content">
+                        <div className="row">
+                            <div id="popup-header">
+                                <label>
+                                    <strong>Daftar Pinjaman Kendaraan</strong>
+                                </label>
+                                <button
+                                    id="popup-close-button"
+                                    onClick={(e) => setOpenQueue(false)}>
+                                    &times;
+                                </button>
+                            </div>
+                            <div>
+                                <div className="row">
+                                    {queues.length > 0 ? (
+                                        queues.map((item, index) => (
+                                        <>
+                                        <QueueDetails 
+                                            userId={item.userId}
+                                            vehicleId={item.vehicleId}
+                                        />
+                                        <div className="col-6">
+                                            <button
+                                                className="btn btn-danger"
+                                                style={{
+                                                    color: "white",
+                                                    marginTop: "10px",
+                                                    width: "100%"
+                                                }}
+                                                onClick={(e) => handleQueueDeniedBt(item, e)}>
+                                                Hapus
+                                            </button>
+                                        </div>
+                                        <div className="col-6">
+                                            <button
+                                                className="btn"
+                                                style={{
+                                                    color: "white",
+                                                    marginTop: "10px",
+                                                    backgroundColor: "#00788d",
+                                                    width: "100%"
+                                                }}
+                                                onClick={(e) => handleQueueConfirmBt(item, e)}
+                                            >
+                                                Konfirmasi
+                                            </button>
+                                        </div>
+                                        </>))
+                                    ) : (
+                                        <div>Belum ada daftar</div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            )}
 
             {admin && loggedIn && openSettings && (
                 <div id="popup-wrapper">
@@ -134,8 +319,7 @@ export const Header: React.FC<HeaderProps> = ({ admin, loggedIn, changePWSuccess
                                 </label>
                                 <button
                                     id="popup-close-button"
-                                    onClick={(e) => setOpenSettings(false)}
-                                >
+                                    onClick={(e) => setOpenSettings(false)}>
                                     &times;
                                 </button>
                             </div>

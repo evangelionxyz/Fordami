@@ -22,7 +22,7 @@
 
 #title {
     text-align: center;
-    font-size: 32px;
+    font-size: 1.7rem;
     font-weight: 900;
     font-style: normal;
     color: #00788d;
@@ -30,7 +30,7 @@
 }
 
 #subtitle {
-    font-size: 12px;
+    font-size: 0.8rem;
     font-weight: 660;
     font-style: normal;
     color: #EEEEEE;

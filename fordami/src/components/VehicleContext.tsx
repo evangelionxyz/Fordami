@@ -3,6 +3,7 @@ import {
     query,
     collection,
     where,
+    deleteDoc,
     getDocs,
     doc,
     getDoc,
@@ -26,13 +27,13 @@ import { deleteObject, ref } from "firebase/storage";
 import { uploadImage } from "../components/ImageUpload";
 import { formatDateTime } from "../utils";
 import "../styles/VehicleDetails.css";
-import Button from "./Button";
 
 export interface VehicleProps {
     id: string;
     kind: string;
     number: string;
     isReady: boolean;
+    isBooked: boolean;
     bbm: number;
     status: string;
     purpose: string;
@@ -102,7 +103,7 @@ export const getVehicleById = async (id: string): Promise<VehicleProps | null> =
             return null;
         }
     } catch (error) {
-        console.error("Error getting document:", error);
+        console.error("Error getting vehicle document:", error);
         return null;
     }
 };
@@ -150,7 +151,7 @@ export const VehicleDetailsByIndex = ({ index, onSaveClick }: VehicleDetailsProp
         setEditing(true);
         editVehicle = vehicle;
         setInventoryItems(editVehicle.invItems);
-        
+
         // set current vehicle's image url
         setCurrentImgUrl(editVehicle.imageUrl);
     }
@@ -307,7 +308,7 @@ export const VehicleDetailsByIndex = ({ index, onSaveClick }: VehicleDetailsProp
                     </div>
                     <div className="col-6">
                         <label className="form-label">
-                            {vehicle.purpose ? vehicle.purpose : "Belum ada tujuan"}
+                            {vehicle.purpose && !vehicle.isBooked ? vehicle.purpose : "Belum ada tujuan"}
                         </label>
                     </div>
                 </div>
@@ -317,8 +318,8 @@ export const VehicleDetailsByIndex = ({ index, onSaveClick }: VehicleDetailsProp
                         <label className="form-label">Jam Pengembalian</label>
                     </div>
                     <div className="col-6">
-                        <label className="form-label">{vehicle.returnDateTime 
-                                ? formatDateTime(vehicle.returnDateTime) + " WIT"
+                        <label className="form-label">{vehicle.returnDateTime && !vehicle.isBooked
+                                ? formatDateTime(vehicle.returnDateTime)
                                 : "Belum ada"}
                         </label>
                     </div>
@@ -339,11 +340,11 @@ export const VehicleDetailsByIndex = ({ index, onSaveClick }: VehicleDetailsProp
                                             justifyContent: "space-between",
                                             gap: "0.1rem"
                                         }}>
-                                            <label>{item}</label>
+                                            <label key={index}>{item}</label>
                                             <button
+                                                key={index}
                                                 className="btn"
                                                 id="inventory-item-button"
-
                                                 onClick={(e) => {
                                                     handleInventoryDeleteBt(e, index)
                                                 }}
@@ -573,14 +574,11 @@ export const VehicleDetailsById = ({ vehicleId }: { vehicleId: string }) => {
 
 export function useVehiclesStatusCheck(vehicles: VehicleProps[]) {
     const [resettingVehicles, setResettingVehicles] = useState<string[]>([]);
-
     useEffect(() => {
         const checkVehicles = async () => {
             const now = new Date();
             const vehiclesToReset = vehicles.filter(vehicle =>
-                vehicle.resetTime && new Date(vehicle.resetTime) <= now && !vehicle.isReady
-            );
-
+                vehicle.resetTime && new Date(vehicle.resetTime) <= now);
             if (vehiclesToReset.length > 0) {
                 setResettingVehicles(vehiclesToReset.map(v => v.id));
 
@@ -589,6 +587,7 @@ export function useVehiclesStatusCheck(vehicles: VehicleProps[]) {
                         const vehicleDocRef = doc(db, "vehicles", vehicle.id);
                         await updateDoc(vehicleDocRef, {
                             isReady: true,
+                            isBooked: false,
                             status: "",
                             purpose: "",
                             returnDateTime: "",
@@ -596,30 +595,32 @@ export function useVehiclesStatusCheck(vehicles: VehicleProps[]) {
                             timeStamp: "",
                         });
 
-                        const userRef = collection(db, "users");
-                        const q = query(userRef, where("vehicleId", "==", vehicle.id));
-
-                        const querySnapShot = await getDocs(q);
-
-                        querySnapShot.forEach(async (doc) => {
+                        // remove reset all users with the same vehicle id
+                        const userQuery = query(collection(db, "users"), where("vehicleId", "==", vehicle.id));
+                        const userQuerySnapShot = await getDocs(userQuery);
+                        userQuerySnapShot.forEach(async (doc) => {
                             await updateDoc(doc.ref, {
                                 vehicleId: "",
                             });
                         });
+
+                        // remove all queue with the same vehicle id
+                        const queueQuery = query(collection(db, "queue"), where("vehicleId", "==", vehicle.id));
+                        const queueQuerySnapshot = await getDocs(queueQuery);
+                        queueQuerySnapshot.forEach(async (doc) => {
+                            await deleteDoc(doc.ref);
+                        });
+
                     } catch (error) {
                         console.error("Failed to reset vehicle ", vehicle.id, error);
                     }
                 }
-
                 setResettingVehicles([]);
             }
         };
-
         checkVehicles();
         const timer = setInterval(checkVehicles, 60000);
         return () => clearInterval(timer);
-
     }, [vehicles]);
-
     return resettingVehicles;
 };

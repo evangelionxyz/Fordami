@@ -4,21 +4,11 @@ import { Header } from "../components/Header";
 import { Footer } from "../components/Footer";
 import { useVehicles, useVehiclesStatusCheck } from "../components/VehicleContext";
 import { useUsers } from "../components/UserContext";
-import { doc, addDoc, updateDoc, collection } from "firebase/firestore";
-import { getTimestamp, formatDateTime } from "../utils";
+import { QueueProps, useQueues } from "../components/QueueContext";
+import { doc, addDoc, updateDoc, collection, query, where, getDocs } from "firebase/firestore";
+import { formatDateTime } from "../utils";
 import { db } from "../lib/Firebase";
 import "../styles/Form.css";
-
-
-interface HistoryProps {
-    userName: string,
-    vehicleName: string,
-    vehicleNumber: string,
-    purpose: string,
-    returnDateTime: string,
-    dateTime: string,
-    id: string,
-};
 
 const Form = () => {
     const [selectedUser, setSelectedUser] = useState<number>(-1);
@@ -49,6 +39,7 @@ const Form = () => {
 
     const { vehicles } = useVehicles();
     const { users } = useUsers();
+    const { queues } = useQueues();
 
     const handleSubmit = (event: React.FormEvent) => {
         event.preventDefault();
@@ -95,54 +86,52 @@ const Form = () => {
         event.preventDefault();
         const vehicle = vehicles[selectedVehicle];
         const user = users[selectedUser];
-
         const vehicleId = vehicle.id ?? "";
         const userId = user.id ?? "";
 
         try {
-            const vehicleDocRef = doc(db, "vehicles", vehicleId);
 
+            // updates vehicle's data
+            const vehicleDocRef = doc(db, "vehicles", vehicleId);
             await updateDoc(vehicleDocRef, {
-                isReady: false,
-                status: "Sedang digunakan oleh " + user.name,
+                isBooked: true,
                 purpose: purpose,
                 returnDateTime: returnDateTime,
                 resetTime: resetTime?.toISOString(),
-                timeStamp: getTimestamp(),
             });
+            vehicles[selectedVehicle].isBooked = true;
 
-            vehicles[selectedVehicle].isReady = false;
-
-            const newHistory: HistoryProps = {
-                userName: user.name,
-                vehicleName: vehicle.kind,
-                vehicleNumber: vehicle.number,
-                purpose: purpose,
-                returnDateTime: formatDateTime(returnDateTime),
-                dateTime: getTimestamp(),
-                id: "",
-            };
-
-            const docRef = await addDoc(collection(db, "history"), newHistory);
-            updateDoc(docRef, { id: docRef.id });
-            newHistory.id = docRef.id;
-            user.borrowId = docRef.id;
-
-            const userDocRef = doc(db, "users", userId);
-            await updateDoc(userDocRef, {
-                vehicleId: vehicleId,
-                borrowId: docRef.id
-            });
+            // add to admin's queue
+            const queueQuery = query(collection(db, "queue"), where("userId", "==", userId));
+            const queueQuerySnapshot = await getDocs(queueQuery);
+            
+            if(!queueQuerySnapshot.empty) {
+                // if a document exists, update it with the new vehicle id
+                const queueDoc = queueQuerySnapshot.docs[0];
+                await updateDoc(queueDoc.ref, {
+                    vehicleId: vehicleId
+                })
+            }
+            else {
+                // if no document exists, add a new queue document
+                const newQueue: QueueProps = {
+                    id: "",
+                    userId: userId,
+                    vehicleId: vehicleId
+                };
+                const queueDocRef = await addDoc(collection(db, "queue"), newQueue);
+                updateDoc(queueDocRef, { id: queueDocRef.id });
+                newQueue.id = queueDocRef.id;
+            }
 
             setShowConfirmPopup(false);
             setSelectedVehicle(-1);
             setSelectedUser(-1);
             setPurpose("");
-
             setReturnDateTime("");
             setResetTime(null);
 
-            showAlertMessage("Berhasil meminjam", "success");
+            showAlertMessage("Peminjaman masuk ke daftar pinjaman", "success");
         } catch (error) {
             console.error("Error updating document: ", error);
         }

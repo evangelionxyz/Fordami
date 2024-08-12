@@ -37,7 +37,7 @@ export const getTimestamp = (): string => {
     const year = String(now.getFullYear()).slice(-2);
     const hours = String(now.getHours()).padStart(2, "0");
     const minutes = String(now.getMinutes()).padStart(2, "0");
-    return `${day}/${month}/${year} ${hours}.${minutes}`;
+    return `${day}/${month}/${year} ${hours}:${minutes}`;
 };
 
 export const formatDateTime = (isoString: string) => {
