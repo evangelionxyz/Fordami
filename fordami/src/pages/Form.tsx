@@ -105,13 +105,12 @@ const Form = () => {
       const vehicleDocRef = doc(db, "vehicles", vehicleId);
 
       let timestamp = getTimestamp();
-      let resetTime_ = resetTime?.toISOString();
       await updateDoc(vehicleDocRef, {
         isBooked: true,
         isReady: false,
         purpose: purpose,
         returnDateTime: returnDateTime,
-        resetTime: resetTime,
+        resetTime: resetTime?.toISOString(),
         status: "Sedang digunakan oleh " + user.name,
         timeStamp: timestamp,
       });

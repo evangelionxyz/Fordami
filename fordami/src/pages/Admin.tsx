@@ -432,7 +432,7 @@ const Admin: React.FC = () => {
                                                 Daftar Pengguna
                                             </label>
                                             {users.map((user, index) => (
-                                                <div className="accordion" id="accordion-listUser">
+                                                <div className="accordion" id="accordion-listUser" >
                                                     <div key={index} className="accordion-item">
                                                         <h2 className="accordion-header">
                                                             <button

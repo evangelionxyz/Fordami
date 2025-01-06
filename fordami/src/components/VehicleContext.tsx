@@ -326,7 +326,7 @@ export const VehicleDetailsByIndex = ({ index, onSaveClick }: VehicleDetailsProp
                     </div>
                     <div className="col-6">
                         <label className="form-label">
-                            {vehicle.purpose && !vehicle.isBooked ? vehicle.purpose : "Belum ada tujuan"}
+                            {vehicle.purpose ? vehicle.purpose : "Belum ada tujuan"}
                         </label>
                     </div>
                 </div>
@@ -336,7 +336,7 @@ export const VehicleDetailsByIndex = ({ index, onSaveClick }: VehicleDetailsProp
                         <label className="form-label">Waktu Pengembalian</label>
                     </div>
                     <div className="col-6">
-                        <label className="form-label">{vehicle.returnDateTime && !vehicle.isBooked
+                        <label className="form-label">{vehicle.returnDateTime
                                 ? formatDateTime(vehicle.returnDateTime)
                                 : "Belum ada"}
                         </label>
